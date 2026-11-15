@@ -1,0 +1,11 @@
+---
+// src/pages/pipeline.astro — Pipeline & Deals Interactive Kanban Board
+import AppLayout from "../layouts/AppLayout.astro";
+import PipelineKanban from "../components/PipelineKanban";
+
+const user = Astro.locals.user!;
+---
+
+<AppLayout title="Pipeline & Deals" user={user} activePage="pipeline">
+  <PipelineKanban client:load isAdmin={false} />
+</AppLayout>

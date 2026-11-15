@@ -1,0 +1,29 @@
+---
+// src/pages/proposals/[id]/edit.astro
+import AppLayout from "../../../layouts/AppLayout.astro";
+import ProposalForm from "../../../components/ProposalForm";
+
+const user = Astro.locals.user!;
+const { id } = Astro.params;
+const proposalId = parseInt(id ?? "0", 10);
+
+if (!proposalId || isNaN(proposalId)) {
+  return Astro.redirect("/proposals");
+}
+---
+
+<AppLayout title="Edit Proposal" user={user} activePage="proposals">
+  <div class="mb-8">
+    <div class="flex items-center gap-2 text-sm text-slate-400 mb-3">
+      <a href="/proposals" class="hover:text-slate-600 transition-colors">Proposals</a>
+      <span>›</span>
+      <span class="text-slate-700 font-medium">Edit Proposal #{id}</span>
+    </div>
+    <h2 class="font-heading font-semibold text-2xl text-slate-900 tracking-tight">Edit Proposal</h2>
+    <p class="text-slate-500 text-sm mt-1">
+      Update the proposal details. A new PDF will be regenerated on save.
+    </p>
+  </div>
+
+  <ProposalForm mode="edit" proposalId={proposalId} client:load />
+</AppLayout>

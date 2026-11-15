@@ -1,0 +1,17 @@
+---
+// src/pages/profile.astro
+import AppLayout from "../layouts/AppLayout.astro";
+import ProfileModal from "../components/ProfileModal";
+
+const user = Astro.locals.user!;
+---
+
+<AppLayout title="Profile Settings" user={user} activePage="profile">
+  <div class="mb-8">
+    <h2 class="font-heading font-semibold text-2xl text-slate-900 tracking-tight">Profile Settings</h2>
+    <p class="text-slate-500 text-sm mt-1">
+      Manage your contact information and account security.
+    </p>
+  </div>
+  <ProfileModal client:load />
+</AppLayout>

@@ -1,0 +1,79 @@
+---
+// src/pages/admin/clients.astro — Company-Wide Client Accounts Oversight
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { prisma } from "../../lib/prisma.js";
+import AdminClientsView, { type AdminClientItem } from "../../components/admin/AdminClientsView";
+
+// Ensure admin user is authenticated
+const adminUser = Astro.locals.adminUser;
+if (!adminUser || adminUser.role !== "HOD_ADMIN") {
+  return Astro.redirect("/login");
+}
+
+// 1. Fetch all client profiles across all sales reps
+const rawClients = await prisma.clientProfile.findMany({
+  include: {
+    salesUser: {
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+      },
+    },
+  },
+  orderBy: { updatedAt: "desc" },
+});
+
+// 2. Fetch all proposals to compute commercial statistics per company
+const proposals = await prisma.proposal.findMany({
+  select: {
+    clientName: true,
+    salesUserId: true,
+    totalAmount: true,
+    status: true,
+  },
+});
+
+// 3. Enrich clients with proposal stats
+const clients: AdminClientItem[] = rawClients.map((client) => {
+  const clientProps = proposals.filter(
+    (p) =>
+      p.clientName.trim().toLowerCase() === client.companyName.trim().toLowerCase()
+  );
+  const totalValue = clientProps.reduce((sum, p) => sum + Number(p.totalAmount || 0), 0);
+  const wonValue = clientProps
+    .filter((p) => p.status === "ACCEPTED")
+    .reduce((sum, p) => sum + Number(p.totalAmount || 0), 0);
+
+  return {
+    id: client.id,
+    companyName: client.companyName,
+    address: client.address,
+    contactPerson: client.contactPerson,
+    contactEmail: client.contactEmail,
+    contactPhone: client.contactPhone,
+    logoUrl: client.logoUrl,
+    salesUserId: client.salesUserId,
+    salesRepName: client.salesUser?.fullName || "Unassigned Rep",
+    salesRepEmail: client.salesUser?.email || "-",
+    proposalCount: clientProps.length,
+    totalValue,
+    wonValue,
+  };
+});
+
+// 4. Distinct sales reps list
+const salesUsers = await prisma.salesUser.findMany({
+  select: { id: true, fullName: true },
+  orderBy: { fullName: "asc" },
+});
+const reps = salesUsers.map((u) => ({ repId: u.id, repName: u.fullName }));
+---
+
+<AdminLayout
+  title="Corporate Accounts Directory"
+  adminUser={adminUser}
+  activePage="clients"
+>
+  <AdminClientsView client:load clients={clients} reps={reps} />
+</AdminLayout>

@@ -1,0 +1,9 @@
+---
+// src/pages/index.astro — Login view as requested (red/black/white theme)
+import AuthLayout from "../layouts/AuthLayout.astro";
+import { LoginForm } from "../components/AuthForms";
+---
+
+<AuthLayout title="Sign In - Zynolo People">
+  <LoginForm client:load />
+</AuthLayout>

@@ -1,0 +1,126 @@
+---
+// src/pages/admin/analytics.astro — Executive HOD Dedicated Sales Analytics
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { prisma } from "../../lib/prisma.js";
+import AdminAnalyticsView from "../../components/admin/AdminAnalyticsView";
+import {
+  ACTIVE_PIPELINE_STATUSES,
+  TERMINAL_WON_STATUSES,
+  TERMINAL_LOST_STATUSES,
+  TERMINAL_EXPIRED_STATUSES,
+} from "../../utils/financialAnalytics.js";
+import type {
+  AdminProposalItem,
+  RepPerformanceMetric,
+} from "../../components/admin/types";
+
+// Ensure admin user is authenticated
+const adminUser = Astro.locals.adminUser;
+if (!adminUser || adminUser.role !== "HOD_ADMIN") {
+  return Astro.redirect("/login");
+}
+
+// 1. Fetch all registered sales representatives
+const salesUsers = await prisma.salesUser.findMany({
+  select: {
+    id: true,
+    fullName: true,
+    email: true,
+    mobileNumber: true,
+  },
+  orderBy: { fullName: "asc" },
+});
+
+// 2. Fetch all proposals across the entire sales force with rep relations
+const rawProposals = await prisma.proposal.findMany({
+  include: {
+    salesUser: {
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        mobileNumber: true,
+      },
+    },
+  },
+  orderBy: { proposalDate: "desc" },
+});
+
+// 3. Format Master Proposal items
+const proposals: AdminProposalItem[] = rawProposals.map((p) => {
+  const total = Number(p.totalAmount || 0);
+  const rawBase = Number(p.baseAmount || 0);
+  const base = rawBase > 0 ? rawBase : total > 0 ? total / 1.18 : 0;
+
+  return {
+    id: p.id,
+    proposalId: p.proposalId,
+    salesUserId: p.salesUserId,
+    salesRepName: p.salesUser?.fullName || "Unassigned Rep",
+    salesRepEmail: p.salesUser?.email || "-",
+    clientName: p.clientName,
+    clientEmail: p.clientEmail,
+    clientPhone: p.clientPhone,
+    employeeCount: p.employeeCount || 0,
+    baseAmount: base,
+    vatAmount: Number(p.vatAmount || 0),
+    totalAmount: total,
+    cogsRateWithVat: p.cogsRateWithVat,
+    totalCogsAmount: p.totalCogsAmount,
+    status: p.status as AdminProposalItem["status"],
+    stage: p.stage,
+    isHodApproved: p.isHodApproved,
+    proposalDate: new Date(p.proposalDate).toISOString(),
+    expiryDate: new Date(p.expiryDate).toISOString(),
+    pdfPath: p.pdfPath,
+    hodComment: p.hodComment,
+    reviewedAt: p.reviewedAt ? new Date(p.reviewedAt).toISOString() : null,
+    reviewedBy: p.reviewedBy,
+  };
+});
+
+// 4. Compute Rep Performance metrics
+const reps: RepPerformanceMetric[] = salesUsers.map((rep) => {
+  const repProps = proposals.filter((p) => String(p.salesUserId) === String(rep.id));
+  const repTotal = repProps.length;
+  const repWon = repProps.filter((p) =>
+    TERMINAL_WON_STATUSES.includes((p.status || "").toUpperCase())
+  );
+  const repPipeline = repProps.filter((p) =>
+    ACTIVE_PIPELINE_STATUSES.includes((p.status || "").toUpperCase())
+  );
+  const repLost = repProps.filter((p) =>
+    TERMINAL_LOST_STATUSES.includes((p.status || "").toUpperCase()) ||
+    TERMINAL_EXPIRED_STATUSES.includes((p.status || "").toUpperCase())
+  );
+
+  const wonValue = repWon.reduce((sum, p) => sum + (p.baseAmount || p.totalAmount), 0);
+  const pipelineValue = repPipeline.reduce((sum, p) => sum + (p.baseAmount || p.totalAmount), 0);
+  const lostValue = repLost.reduce((sum, p) => sum + (p.baseAmount || p.totalAmount), 0);
+  const winRate =
+    repTotal > 0 ? Number(((repWon.length / repTotal) * 100).toFixed(1)) : 0;
+
+  return {
+    repId: rep.id,
+    repName: rep.fullName,
+    email: rep.email,
+    phone: rep.mobileNumber || "",
+    totalProposals: repTotal,
+    pipelineCount: repPipeline.length,
+    pipelineValue,
+    wonCount: repWon.length,
+    wonValue,
+    lostCount: repLost.length,
+    lostValue,
+    winRate,
+  };
+});
+---
+
+<AdminLayout
+  title="Sales Analytics & Commercial Intelligence"
+  adminUser={adminUser}
+  activePage="analytics"
+>
+  <AdminAnalyticsView client:load proposals={proposals} reps={reps} />
+</AdminLayout>

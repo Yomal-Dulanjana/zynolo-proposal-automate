@@ -1,0 +1,80 @@
+---
+// src/layouts/AuthLayout.astro — Clean layout for login/signup/forgot-password
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+}
+
+const { title = "Authentication" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title} — D-Tech Zynolo People Portal</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body class="min-h-screen bg-slate-50 flex">
+    <!-- Left decorative panel -->
+    <div class="hidden lg:flex lg:w-1/2 bg-slate-900 relative overflow-hidden flex-col p-16 justify-between">
+      <!-- Background pattern -->
+      <div class="absolute inset-0 opacity-10">
+        <div class="absolute top-0 left-0 w-full h-full"
+          style="background-image: radial-gradient(circle at 20px 20px, rgba(220,38,38,0.4) 2px, transparent 0); background-size: 40px 40px;">
+        </div>
+      </div>
+      <!-- Crimson accent circles -->
+      <div class="absolute -top-20 -right-20 w-80 h-80 bg-crimson-600 rounded-full opacity-15 blur-3xl"></div>
+      <div class="absolute -bottom-20 -left-20 w-96 h-96 bg-crimson-700 rounded-full opacity-10 blur-3xl"></div>
+
+      <div class="relative z-10">
+        <div class="font-heading font-semibold text-white text-3xl tracking-tight mb-2">
+          D<span class="text-crimson-500">-</span>Tech (Pvt) Ltd
+        </div>
+        <div class="font-heading font-semibold text-slate-400 text-xs uppercase tracking-wider">Zynolo People Proposal Portal</div>
+      </div>
+
+      <div class="relative z-10 space-y-6">
+        <blockquote class="font-heading font-medium text-white text-2xl leading-relaxed">
+          "Generate professional proposals in seconds — not hours."
+        </blockquote>
+        <div class="grid grid-cols-3 gap-4">
+          <div class="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <div class="text-crimson-400 font-heading font-semibold text-2xl">PDF</div>
+            <div class="text-slate-400 text-xs mt-1 font-sans">Pixel Perfect</div>
+          </div>
+          <div class="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <div class="text-crimson-400 font-heading font-semibold text-2xl">Auto</div>
+            <div class="text-slate-400 text-xs mt-1 font-sans">VAT Calc</div>
+          </div>
+          <div class="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <div class="text-crimson-400 font-heading font-semibold text-2xl">SMTP</div>
+            <div class="text-slate-400 text-xs mt-1 font-sans">Email Send</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative z-10 text-slate-600 text-xs font-sans">
+        © {new Date().getFullYear()} D-Tech Solutions. Enterprise Edition.
+      </div>
+    </div>
+
+    <!-- Right auth panel -->
+    <div class="flex-1 flex flex-col items-center justify-center px-6 py-12">
+      <div class="w-full max-w-md">
+        <div class="text-center mb-8 lg:hidden">
+          <div class="font-heading font-semibold text-slate-900 text-2xl tracking-tight">
+            D<span class="text-crimson-600">-</span>Tech Solutions
+          </div>
+        </div>
+        <slot />
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,166 @@
+// Prisma Schema — Proposal Automation Platform
+// Configured for TiDB / MySQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProposalStatus {
+  DRAFT
+  HOD_PENDING
+  APPROVED
+  CHANGES_REQUESTED
+  CHANGED_PENDING
+  SENT
+  VIEWED
+  IN_NEGOTIATION
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum DealStage {
+  NEW_LEAD
+  QUALIFIED
+  PROPOSAL_SENT
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum EmailRecipientType {
+  CLIENT
+  SALES_REP
+}
+
+enum EmailDeliveryStatus {
+  SENT
+  FAILED
+}
+
+model SalesUser {
+  id             Int             @id @default(autoincrement())
+  fullName       String          @db.VarChar(255)
+  email          String          @unique @db.VarChar(255)
+  mobileNumber   String          @db.VarChar(30)
+  passwordHash   String          @db.VarChar(255)
+  otpCode        String?         @db.VarChar(10)
+  otpExpiresAt   DateTime?
+  proposals          Proposal[]
+  clientProfiles     ClientProfile[]
+  proposalActivities ProposalActivity[]
+  createdAt          DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("sales_users")
+}
+
+model ClientProfile {
+  id            Int       @id @default(autoincrement())
+  salesUserId   Int
+  salesUser     SalesUser @relation(fields: [salesUserId], references: [id], onDelete: Cascade)
+  companyName   String    @db.VarChar(255)
+  address       String    @db.Text
+  contactPerson String?   @db.VarChar(255)
+  contactEmail  String    @db.VarChar(255)
+  contactPhone  String?   @db.VarChar(50)
+  logoUrl       String?   @db.VarChar(500)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([salesUserId, companyName])
+  @@index([salesUserId, createdAt])
+  @@map("client_profiles")
+}
+
+model Proposal {
+  id            Int            @id @default(autoincrement())
+  proposalId    String         @unique @db.VarChar(50)
+  version       String         @default("1.0.0") @db.VarChar(20)
+  status        ProposalStatus @default(HOD_PENDING)
+  stage         DealStage      @default(NEW_LEAD)
+  isHodApproved Boolean        @default(false)
+  probability   Int            @default(10)
+  publicToken   String         @unique @db.VarChar(64)
+  salesUserId   Int
+  salesUser     SalesUser      @relation(fields: [salesUserId], references: [id], onDelete: Cascade)
+  clientName    String         @db.VarChar(255)
+  clientAddress String         @db.Text
+  clientEmail   String         @db.VarChar(255)
+  clientPhone   String?        @db.VarChar(50)
+  clientLogoUrl String?        @db.VarChar(500)
+  employeeCount Int            @default(0)
+  ratePerUser   Float?         @default(400.00)
+  baseAmount    Decimal        @db.Decimal(12, 2)
+  vatPercentage Decimal        @default(18.00) @db.Decimal(5, 2)
+  vatAmount     Decimal        @db.Decimal(12, 2)
+  totalAmount   Decimal        @db.Decimal(12, 2)
+  proposalDate  DateTime
+  expiryDate    DateTime
+  pdfPath           String             @db.VarChar(500)
+  hodComment        String?            @db.Text
+  reviewedAt        DateTime?
+  reviewedBy        String?            @db.VarChar(255)
+  lossReason        String?            @db.VarChar(100)
+  lossNotes         String?            @db.Text
+  lastContactedAt   DateTime?          @default(now())
+  cogsEstimated     Decimal?           @default(80.00) @db.Decimal(10, 2)
+  cogsRateWithVat   Float?             @default(80.00)
+  totalCogsAmount   Float?
+  activities        ProposalActivity[]
+  emailLogs         EmailLog[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([salesUserId, createdAt])
+  @@index([status])
+  @@map("proposals")
+}
+
+model ProposalActivity {
+  id           String     @id @default(cuid())
+  proposalId   Int
+  proposal     Proposal   @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  salesUserId  Int?
+  salesUser    SalesUser? @relation(fields: [salesUserId], references: [id], onDelete: SetNull)
+  type         String     @db.VarChar(50) // 'CALL' | 'EMAIL' | 'DEMO' | 'WHATSAPP' | 'NOTE'
+  outcome      String     @db.VarChar(50) // 'INTERESTED' | 'MEETING_SCHEDULED' | 'APPROVED' | 'OBJECTION'
+  notes        String?    @db.Text
+  nextActionAt DateTime?
+  createdAt    DateTime   @default(now())
+
+  @@index([proposalId, createdAt])
+  @@index([salesUserId])
+  @@map("proposal_activities")
+}
+
+model EmailLog {
+  id             Int                 @id @default(autoincrement())
+  proposalId     String              @db.VarChar(50)
+  proposal       Proposal?           @relation(fields: [proposalId], references: [proposalId], onDelete: Cascade)
+  recipientType  EmailRecipientType
+  recipientEmail String              @db.VarChar(255)
+  subject        String              @db.VarChar(500)
+  status         EmailDeliveryStatus @default(SENT)
+  errorMessage   String?             @db.Text
+  sentAt         DateTime            @default(now())
+
+  @@index([proposalId, sentAt])
+  @@index([recipientEmail])
+  @@map("email_logs")
+}
+
+// System-wide Global Financial Configuration
+model SystemConfig {
+  id                 String   @id @default("global_config")
+  currentCogsWithVat Float    @default(80.00) // Active daily COGS per user (with VAT)
+  updatedAt          DateTime @updatedAt
+  updatedBy          String?  // Admin who last modified the rate
+
+  @@map("system_configs")
+}

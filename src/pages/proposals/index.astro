@@ -1,0 +1,11 @@
+---
+// src/pages/proposals/index.astro
+import AppLayout from "../../layouts/AppLayout.astro";
+import ProposalDashboard from "../../components/ProposalDashboard";
+
+const user = Astro.locals.user!;
+---
+
+<AppLayout title="All Proposals" user={user} activePage="proposals">
+  <ProposalDashboard client:load />
+</AppLayout>

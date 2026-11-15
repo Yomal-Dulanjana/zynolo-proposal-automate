@@ -1,0 +1,9 @@
+---
+// src/pages/login.astro
+import AuthLayout from "../layouts/AuthLayout.astro";
+import { LoginForm } from "../components/AuthForms";
+---
+
+<AuthLayout title="Sign In — Zynolo People">
+  <LoginForm client:load />
+</AuthLayout>

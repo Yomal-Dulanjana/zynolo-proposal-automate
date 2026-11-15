@@ -1,0 +1,466 @@
+---
+// src/components/ProposalPdfTemplate.astro — 16:9 Landscape (1920x1080) slide background overlays
+import { formatAmountOnly, formatOrdinalDateShort, formatOrdinalDateLong } from "../lib/proposals";
+import { calculateProposalPricing } from "../utils/pricing";
+
+export interface Props {
+  proposalId: string;
+  version?: string;
+  proposalDate: Date;
+  expiryDate: Date;
+  clientName: string;
+  clientAddress: string;
+  clientEmail?: string | null;
+  clientPhone?: string | null;
+  clientLogoUrl?: string | null;
+  employeeCount: number;
+  baseAmount: number;
+  vatAmount: number;
+  totalAmount: number;
+  repName: string;
+  repMobile: string;
+  repEmail: string;
+  slideBase64Urls?: Record<string, string>;
+}
+
+const {
+  proposalId,
+  version = "1.0.0",
+  proposalDate,
+  expiryDate,
+  clientName,
+  clientAddress,
+  clientEmail,
+  clientPhone,
+  clientLogoUrl,
+  employeeCount,
+  baseAmount,
+  vatAmount,
+  totalAmount,
+  repName,
+  repMobile,
+  repEmail,
+  slideBase64Urls = {},
+} = Astro.props;
+
+const s1 = slideBase64Urls["slide-1"] ?? "/templates/slide-1.png";
+const s2 = slideBase64Urls["slide-2"] ?? "/templates/slide-2.png";
+const s3 = slideBase64Urls["slide-3"] ?? "/templates/slide-3.png";
+const s4 = slideBase64Urls["slide-4"] ?? "/templates/slide-4.png";
+const s5 = slideBase64Urls["slide-5"] ?? "/templates/slide-5.png";
+const s6 = slideBase64Urls["slide-6"] ?? "/templates/slide-6.png";
+const s7 = slideBase64Urls["slide-7"] ?? "/templates/slide-7.png";
+
+const pricing = calculateProposalPricing(employeeCount || 10);
+const calcBase = baseAmount && baseAmount >= pricing.baseAmount ? baseAmount : pricing.baseAmount;
+const calcVat = vatAmount && vatAmount >= pricing.vatAmount ? vatAmount : pricing.vatAmount;
+const calcTotal = totalAmount && totalAmount >= pricing.totalAmount ? totalAmount : pricing.totalAmount;
+
+const empCount = pricing.employeeCount;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0" />
+  <title>Zynolo People Proposal - {proposalId}</title>
+  <style>
+    @page {
+      size: 1920px 1080px;
+      margin: 0px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      width: 1920px;
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .slide-page {
+      width: 1920px;
+      height: 1080px;
+      max-width: 1920px;
+      max-height: 1080px;
+      position: relative;
+      overflow: hidden;
+      page-break-after: always;
+      page-break-inside: avoid;
+      background-size: 1920px 1080px;
+      background-position: top left;
+      background-repeat: no-repeat;
+    }
+
+    .slide-page:last-child {
+      page-break-after: auto;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 01 (COVER SLIDE)
+    ══════════════════════════════════════════════════════════════ */
+    .p1-logo-container {
+      position: absolute;
+      top: 650px;
+      left: 40px;
+      width: 260px;
+      height: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .p1-logo-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .p1-target-box {
+      position: absolute;
+      top: 640px;
+      left: 325px;
+      width: 480px;
+      height: 180px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+    }
+
+    .p1-target-line1 {
+      color: #a81119;
+      font-weight: bold;
+      font-size: 16px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+    }
+
+    .p1-target-line2 {
+      color: #0f172a;
+      font-weight: bold;
+      font-size: 22px;
+      line-height: 1.2;
+      word-break: break-word;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+    }
+
+    .p1-target-line3 {
+      color: #000000;
+      font-weight: 500;
+      font-size: 18px;
+      line-height: 1.25;
+      word-break: break-word;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+    }
+
+    .p1-target-line4 {
+      color: #000000;
+      font-weight: 500;
+      font-size: 18px;
+      line-height: 1.25;
+      word-break: break-word;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+    }
+
+    .p1-meta-id {
+      position: absolute;
+      top: 1002px;
+      left: 195px;
+      min-width: 260px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      padding-left: 8px;
+      padding-right: 12px;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 24px;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      letter-spacing: 0.5px;
+    }
+
+    .p1-meta-version {
+      position: absolute;
+      top: 1002px;
+      left: 822px;
+      min-width: 180px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      padding-left: 8px;
+      padding-right: 12px;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 24px;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      letter-spacing: 0.5px;
+    }
+
+    .p1-meta-date {
+      position: absolute;
+      top: 1002px;
+      left: 1410px;
+      min-width: 260px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      padding-left: 8px;
+      padding-right: 12px;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 24px;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      white-space: nowrap;
+      letter-spacing: 0.5px;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 05 (FINANCIAL CONSIDERATION)
+    ══════════════════════════════════════════════════════════════ */
+    .p5-client-name {
+      position: absolute;
+      top: 390px;
+      left: 300px;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      font-size: 32px;
+      line-height: 1.2;
+      font-weight: bold;
+      color: #990000;
+      white-space: nowrap;
+    }
+
+    .p5-employee-count {
+      position: absolute;
+      top: 446px;
+      left: 600px;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      font-size: 32px;
+      line-height: 1.2;
+      font-weight: bold;
+      color: #990000;
+      white-space: nowrap;
+    }
+
+    .p5-base-amount {
+      position: absolute;
+      top: 366px;
+      left: 1420px;
+      width: 310px;
+      text-align: right;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      font-size: 32px;
+      line-height: 1.2;
+      font-weight: 600;
+      color: #990000;
+    }
+
+    .p5-vat-amount {
+      position: absolute;
+      top: 751px;
+      left: 1420px;
+      width: 310px;
+      text-align: right;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      font-size: 32px;
+      line-height: 1.2;
+      font-weight: 600;
+      color: #990000;
+    }
+
+    .p5-total-amount {
+      position: absolute;
+      top: 810px;
+      left: 1420px;
+      width: 310px;
+      text-align: right;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      font-size: 32px;
+      line-height: 1.2;
+      font-weight: bold;
+      color: #990000;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 06 (TERMS & CONDITIONS)
+    ══════════════════════════════════════════════════════════════ */
+    .p6-client-terminology {
+      position: absolute;
+      top: 410px;
+      left: 416px;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      font-size: 32px;
+      line-height: 1.2;
+      font-weight: bold;
+      color: #990000;
+      white-space: nowrap;
+    }
+
+    .p6-expiry-clause {
+      position: absolute;
+      top: 770px;
+      left: 730px;
+      background: #ffffff;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      font-size: 32px;
+      line-height: 1.2;
+      font-weight: bold;
+      color: #990000;
+      white-space: nowrap;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       SLIDE 07 (CONTACT US / SALES REP SLOT)
+    ══════════════════════════════════════════════ */
+    .p7-rep-name {
+      position: absolute;
+      top: 365px;
+      left: 48px;
+      width: 592px;
+      height: 41px;
+      display: flex;
+      align-items: center;
+      padding-left: 12px;
+      color: #ffffff;
+      font-weight: 400;
+      font-size: 28px;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      letter-spacing: 0.3px;
+    }
+
+    .p7-contact-box {
+      position: absolute;
+      top: 416px;
+      left: 60px;
+      width: 580px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+    }
+
+    .p7-rep-mobile {
+      color: #000000;
+      font-weight: 500;
+      font-size: 28px;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      margin-top: 6px;
+    }
+
+    .p7-rep-email {
+      color: #1d4ed8;
+      font-weight: 500;
+      font-size: 28px;
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      text-decoration: underline;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 1: COVER PAGE
+  ══════════════════════════════════════════════ -->
+  <div class="slide-page" style={`background-image: url('${s1}');`}>
+    <!-- Client Logo Container (Scaled: 240x160) -->
+    <div class="p1-logo-container">
+      {clientLogoUrl && (
+        <img src={clientLogoUrl} alt={clientName} />
+      )}
+    </div>
+
+    <!-- Proposal Target Details -->
+    <div class="p1-target-box">
+      <div class="p1-target-line1">PROPOSAL FOR</div>
+      <div class="p1-target-line2">{clientName}</div>
+      <div class="p1-target-line3">{clientAddress}</div>
+      {(clientEmail || clientPhone) && (
+        <div class="p1-target-line4">
+          {[clientEmail, clientPhone].filter(Boolean).join(" | ")}
+        </div>
+      )}
+    </div>
+
+    <!-- Bottom Metadata Bar with Overlap Masking -->
+    <div class="p1-meta-id">{proposalId}</div>
+    <div class="p1-meta-version">{version}</div>
+    <div class="p1-meta-date">{formatOrdinalDateShort(proposalDate)}</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 2: MAIN FUNCTIONALITY (STATIC)
+  ══════════════════════════════════════════════ -->
+  <div class="slide-page" style={`background-image: url('${s2}');`}></div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 3: SYSTEM BLOCK DIAGRAM (STATIC)
+  ══════════════════════════════════════════════ -->
+  <div class="slide-page" style={`background-image: url('${s3}');`}></div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 4: IMPLEMENTATION METHODOLOGY (STATIC)
+  ══════════════════════════════════════════════ -->
+  <div class="slide-page" style={`background-image: url('${s4}');`}></div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 5: FINANCIAL CONSIDERATION
+  ══════════════════════════════════════════════ -->
+  <div class="slide-page" style={`background-image: url('${s5}');`}>
+    <!-- Slot 1: Customize and implement Standard Zynolo-People Product to: ${clientName} -->
+    <div class="p5-client-name">&nbsp;{clientName}.</div>
+
+    <!-- Slot 2: Number of Employees directly after "Employees:" (18px Calibri #000000 bold) -->
+    <div class="p5-employee-count">&nbsp;{empCount}</div>
+
+    <!-- Slot 3: Base Amount (18px Calibri 600, Right-Aligned) -->
+    <div class="p5-base-amount">{formatAmountOnly(calcBase)}</div>
+
+    <!-- Slot 4: 18% VAT (18px Calibri 600, Right-Aligned) -->
+    <div class="p5-vat-amount">{formatAmountOnly(calcVat)}</div>
+
+    <!-- Slot 5: Total Amount (18px Calibri bold #990000, Right-Aligned) -->
+    <div class="p5-total-amount">{formatAmountOnly(calcTotal)}</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 6: TERMS & CONDITIONS
+  ══════════════════════════════════════════════ -->
+  <div class="slide-page" style={`background-image: url('${s6}');`}>
+    <!-- Slot 1: Client Name directly inline after 'Client: - ' (18px Calibri #990000 bold) -->
+    <div class="p6-client-terminology">&nbsp;{clientName}</div>
+
+    <!-- Slot 2: Expiry Clause directly inline after '4. This sales proposal will expire ' (18px Calibri #990000 bold) -->
+    <div class="p6-expiry-clause">on {formatOrdinalDateLong(expiryDate)}.</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SLIDE 7: CONTACT US (SALES REP SLOT)
+  ══════════════════════════════════════════════ -->
+  <div class="slide-page" style={`background-image: url('${s7}');`}>
+    <!-- Slot 1: Sales Rep Name centered inside Crimson Bar -->
+    <div class="p7-rep-name">{repName}</div>
+
+    <!-- Slot 2: Contact Information beneath Crimson Bar on white background -->
+    <div class="p7-contact-box">
+      <div class="p7-rep-mobile">{repMobile}</div>
+      <div class="p7-rep-email">{repEmail}</div>
+    </div>
+  </div>
+
+</body>
+</html>

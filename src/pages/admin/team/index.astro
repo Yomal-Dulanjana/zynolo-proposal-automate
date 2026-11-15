@@ -1,0 +1,62 @@
+---
+// src/pages/admin/team/index.astro — Sales Team Governance & Representative Directory
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { prisma } from "../../../lib/prisma.js";
+import SalesTeamTable, { type SalesRepData } from "../../../components/admin/SalesTeamTable";
+
+// 1. Ensure admin user is authenticated
+const adminUser = Astro.locals.adminUser;
+if (!adminUser || adminUser.role !== "HOD_ADMIN") {
+  return Astro.redirect("/login");
+}
+
+// 2. Fetch all sales representatives
+const salesUsers = await prisma.salesUser.findMany({
+  select: {
+    id: true,
+    fullName: true,
+    email: true,
+    mobileNumber: true,
+    createdAt: true,
+  },
+  orderBy: { fullName: "asc" },
+});
+
+// 3. Fetch proposals to calculate individual rep metrics
+const proposals = await prisma.proposal.findMany({
+  select: {
+    id: true,
+    salesUserId: true,
+    status: true,
+    totalAmount: true,
+  },
+});
+
+// 4. Construct initial data payload for client component
+const initialReps: SalesRepData[] = salesUsers.map((user) => {
+  const userProps = proposals.filter((p) => p.salesUserId === user.id);
+  const wonProps = userProps.filter((p) => p.status === "ACCEPTED");
+  const pipelineProps = userProps.filter((p) =>
+    ["SENT", "VIEWED", "IN_NEGOTIATION"].includes(p.status)
+  );
+
+  return {
+    id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    mobileNumber: user.mobileNumber,
+    createdAt: user.createdAt.toISOString(),
+    totalProposals: userProps.length,
+    wonProposals: wonProps.length,
+    wonAmount: wonProps.reduce((sum, p) => sum + Number(p.totalAmount || 0), 0),
+    pipelineProposals: pipelineProps.length,
+    pipelineAmount: pipelineProps.reduce((sum, p) => sum + Number(p.totalAmount || 0), 0),
+  };
+});
+---
+
+<AdminLayout title="Sales Team Governance" adminUser={adminUser} activePage="team">
+  <div class="w-full max-w-none space-y-6">
+    <SalesTeamTable client:load initialReps={initialReps} />
+  </div>
+</AdminLayout>

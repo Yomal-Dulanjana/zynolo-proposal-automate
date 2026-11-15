@@ -1,0 +1,59 @@
+---
+// src/pages/admin/waiting-proposals.astro — Executive Proposal Gatekeeping & Review Queue
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { prisma } from "../../lib/prisma.js";
+import WaitingProposalsTable, { type WaitingProposalItem } from "../../components/admin/WaitingProposalsTable";
+
+// Ensure admin user is authenticated
+const adminUser = Astro.locals.adminUser;
+if (!adminUser || adminUser.role !== "HOD_ADMIN") {
+  return Astro.redirect("/login");
+}
+
+// Fetch all proposals waiting for review
+const rawProposals = await prisma.proposal.findMany({
+  where: {
+    status: { in: ["HOD_PENDING", "CHANGED_PENDING"] },
+  },
+  include: {
+    salesUser: {
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        mobileNumber: true,
+      },
+    },
+  },
+  orderBy: { updatedAt: "desc" },
+});
+
+const proposals: WaitingProposalItem[] = rawProposals.map((p) => ({
+  id: p.id,
+  proposalId: p.proposalId,
+  clientName: p.clientName,
+  clientEmail: p.clientEmail,
+  clientPhone: p.clientPhone,
+  salesUserId: p.salesUserId,
+  salesRepName: p.salesUser?.fullName || "Unassigned Rep",
+  salesRepEmail: p.salesUser?.email || "-",
+  salesRepPhone: p.salesUser?.mobileNumber,
+  employeeCount: p.employeeCount || 0,
+  baseAmount: Number(p.baseAmount || 0),
+  vatAmount: Number(p.vatAmount || 0),
+  totalAmount: Number(p.totalAmount || 0),
+  status: p.status as WaitingProposalItem["status"],
+  proposalDate: new Date(p.proposalDate).toISOString(),
+  expiryDate: new Date(p.expiryDate).toISOString(),
+  createdAt: new Date(p.createdAt).toISOString(),
+  updatedAt: new Date(p.updatedAt).toISOString(),
+  pdfPath: p.pdfPath,
+  hodComment: p.hodComment,
+}));
+---
+
+<AdminLayout title="Waiting Proposals Review" adminUser={adminUser} activePage="waiting-proposals">
+  <div class="w-full max-w-none space-y-6">
+    <WaitingProposalsTable client:load initialProposals={proposals} />
+  </div>
+</AdminLayout>

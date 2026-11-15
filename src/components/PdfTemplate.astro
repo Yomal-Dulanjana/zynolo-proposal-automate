@@ -1,0 +1,925 @@
+---
+// src/components/PdfTemplate.astro — 7-Page Zynolo People corporate proposal template
+import { formatCurrency, formatDate, formatDateShort } from "../lib/proposals";
+
+export interface Props {
+  proposalId: string;
+  version: string;
+  proposalDate: Date;
+  expiryDate: Date;
+  clientName: string;
+  clientAddress: string;
+  clientLogoUrl?: string | null;
+  employeeCount: number;
+  baseAmount: number;
+  vatPercentage: number;
+  vatAmount: number;
+  totalAmount: number;
+  repName: string;
+  repMobile: string;
+  repEmail: string;
+}
+
+const {
+  proposalId,
+  version = "1.0.0",
+  proposalDate,
+  expiryDate,
+  clientName,
+  clientAddress,
+  clientLogoUrl,
+  employeeCount,
+  baseAmount,
+  vatPercentage = 18.00,
+  vatAmount,
+  totalAmount,
+  repName,
+  repMobile,
+  repEmail,
+} = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zynolo People Proposal - {proposalId}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    /* Page container setup for A4 multi-page PDF */
+    .proposal-page {
+      width: 210mm;
+      height: 297mm;
+      max-height: 297mm;
+      position: relative;
+      page-break-after: always;
+      page-break-inside: avoid;
+      overflow: hidden;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+
+    .proposal-page:last-child {
+      page-break-after: auto;
+    }
+
+    /* Cover Page Styles */
+    .cover-top {
+      background: #0f172a;
+      padding: 48px 56px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover-top::before {
+      content: '';
+      position: absolute;
+      top: -80px;
+      right: -80px;
+      width: 320px;
+      height: 320px;
+      background: rgba(220, 38, 38, 0.15);
+      border-radius: 50%;
+    }
+    .cover-top::after {
+      content: '';
+      position: absolute;
+      bottom: -60px;
+      left: 20%;
+      width: 220px;
+      height: 220px;
+      background: rgba(220, 38, 38, 0.08);
+      border-radius: 50%;
+    }
+    .brand-title {
+      font-size: 34px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: -1px;
+      position: relative;
+      z-index: 2;
+    }
+    .brand-title span {
+      color: #dc2626;
+    }
+    .brand-subtitle {
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 6px;
+      position: relative;
+      z-index: 2;
+    }
+    .accent-bar {
+      height: 5px;
+      background: linear-gradient(90deg, #dc2626 0%, #b91c1c 50%, #dc2626 100%);
+    }
+    .cover-body {
+      flex: 1;
+      padding: 60px 56px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .logo-container {
+      width: 260px;
+      height: 120px;
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .logo-container img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .logo-placeholder {
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .cover-heading-box {
+      margin-top: 36px;
+    }
+    .cover-tag {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #dc2626;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .cover-client-title {
+      font-size: 38px;
+      font-weight: 900;
+      color: #0f172a;
+      line-height: 1.2;
+      letter-spacing: -1px;
+    }
+    .cover-client-title span {
+      color: #dc2626;
+    }
+    .cover-client-address {
+      font-size: 15px;
+      color: #64748b;
+      margin-top: 12px;
+      max-width: 520px;
+      line-height: 1.6;
+    }
+    .metadata-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 40px;
+    }
+    .meta-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 18px 22px;
+    }
+    .meta-card-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+    .meta-card-value {
+      font-size: 16px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .meta-card-value.highlight {
+      color: #dc2626;
+    }
+    .cover-bottom-bar {
+      background: #0f172a;
+      padding: 22px 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .cover-bottom-bar p {
+      color: #64748b;
+      font-size: 12px;
+    }
+    .cover-bottom-bar p strong {
+      color: #cbd5e1;
+    }
+    .cover-page-pill {
+      font-size: 13px;
+      font-weight: 800;
+      color: #dc2626;
+    }
+
+    /* Common Header for Pages 2 to 6 */
+    .page-header-nav {
+      background: #0f172a;
+      padding: 22px 56px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header-logo-text {
+      font-size: 18px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+    }
+    .header-logo-text span {
+      color: #dc2626;
+    }
+    .header-meta-ref {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .header-accent {
+      height: 3px;
+      background: linear-gradient(90deg, #dc2626, #b91c1c);
+    }
+    .page-inner {
+      flex: 1;
+      padding: 44px 56px 60px;
+      display: flex;
+      flex-direction: column;
+    }
+    .section-headline {
+      font-size: 22px;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-headline::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 24px;
+      background: #dc2626;
+      border-radius: 2px;
+    }
+    .divider-line {
+      height: 1px;
+      background: #e2e8f0;
+      margin: 14px 0 24px;
+    }
+    .prose-text {
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.8;
+      margin-bottom: 14px;
+    }
+    .key-points-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 20px 0;
+    }
+    .point-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 3px solid #dc2626;
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+    .point-card-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .point-card-body {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    /* Common Footer */
+    .page-footer-nav {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      padding: 14px 56px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-left-note {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .footer-page-indicator {
+      font-size: 12px;
+      font-weight: 800;
+      color: #dc2626;
+    }
+
+    /* Page 3 Checklist */
+    .check-list {
+      list-style: none;
+      margin: 16px 0;
+    }
+    .check-list li {
+      padding: 8px 0 8px 24px;
+      position: relative;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+    .check-list li::before {
+      content: '✔';
+      position: absolute;
+      left: 0;
+      color: #dc2626;
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    /* Page 5 Financial Table */
+    .pricing-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 24px 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .pricing-table th {
+      background: #0f172a;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      padding: 14px 20px;
+      text-align: left;
+    }
+    .pricing-table th:last-child {
+      text-align: right;
+    }
+    .pricing-table td {
+      padding: 14px 20px;
+      color: #334155;
+      font-size: 13px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #ffffff;
+    }
+    .pricing-table td:last-child {
+      text-align: right;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .pricing-table tr.alt-row td {
+      background: #f8fafc;
+    }
+    .pricing-table tr.subtotal td {
+      background: #f1f5f9;
+      font-weight: 800;
+      color: #0f172a;
+      border-top: 2px solid #e2e8f0;
+    }
+    .pricing-table tr.vat-highlight td {
+      background: #fff1f2;
+      color: #b91c1c;
+      font-weight: 700;
+    }
+    .pricing-table tfoot td {
+      background: #0f172a;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 15px;
+      padding: 18px 20px;
+    }
+    .pricing-table tfoot td:last-child {
+      color: #dc2626;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    /* Page 6 Terms */
+    .terms-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 18px 22px;
+      margin-bottom: 14px;
+    }
+    .terms-item-num {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #dc2626;
+      margin-bottom: 6px;
+    }
+    .terms-item-content {
+      font-size: 12.5px;
+      color: #334155;
+      line-height: 1.7;
+    }
+    .terms-item.expiry-clause {
+      background: #fff1f2;
+      border-color: #fecdd3;
+    }
+    .terms-item.expiry-clause .terms-item-content {
+      color: #991b1b;
+      font-weight: 600;
+    }
+
+    /* Page 7 Contact Page */
+    .contact-container {
+      background: #0f172a;
+      color: #ffffff;
+      height: 297mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 56px;
+    }
+    .contact-heading-main {
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: -1px;
+    }
+    .contact-heading-main span {
+      color: #dc2626;
+    }
+    .rep-profile-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-top: 4px solid #dc2626;
+      border-radius: 14px;
+      padding: 32px;
+      margin: 32px 0 20px;
+    }
+    .rep-card-subtitle {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #94a3b8;
+      margin-bottom: 16px;
+    }
+    .rep-name-large {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      margin-bottom: 24px;
+    }
+    .contact-line {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .contact-icon-bubble {
+      width: 40px;
+      height: 40px;
+      background: #dc2626;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .contact-line-label {
+      font-size: 11px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .contact-line-val {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+    .company-card-dark {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 24px 28px;
+    }
+    .contact-final-footer {
+      background: #dc2626;
+      padding: 18px 56px;
+      margin: 0 -56px -56px -56px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════
+       PAGE 1: COVER
+  ══════════════════════════════════════════════ -->
+  <div class="proposal-page">
+    <div class="cover-top">
+      <div class="brand-title">Zynolo<span> </span>People</div>
+      <div class="brand-subtitle">Enterprise Human Capital &amp; Staffing Automation</div>
+    </div>
+    <div class="accent-bar"></div>
+    <div class="cover-body">
+      <div class="logo-container">
+        {clientLogoUrl ? (
+          <img src={clientLogoUrl} alt={clientName} />
+        ) : (
+          <span class="logo-placeholder">Client Logo Box</span>
+        )}
+      </div>
+
+      <div class="cover-heading-box">
+        <div class="cover-tag">Business Proposal</div>
+        <div class="cover-client-title">
+          Proposal for <span>{clientName}</span>
+        </div>
+        <div class="cover-client-address">
+          📍 {clientAddress}
+        </div>
+      </div>
+
+      <div class="metadata-grid">
+        <div class="meta-card">
+          <div class="meta-card-label">Proposal ID</div>
+          <div class="meta-card-value highlight">{proposalId}</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-card-label">Version</div>
+          <div class="meta-card-value">{version}</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-card-label">Proposal Date</div>
+          <div class="meta-card-value">{formatDateShort(proposalDate)}</div>
+        </div>
+      </div>
+    </div>
+    <div class="cover-bottom-bar">
+      <p><strong>Confidential Proposal</strong> — Prepared exclusively for {clientName}</p>
+      <div class="cover-page-pill">Page 01</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       PAGE 2: EXECUTIVE SUMMARY
+  ══════════════════════════════════════════════ -->
+  <div class="proposal-page">
+    <div class="page-header-nav">
+      <div class="header-logo-text">Zynolo<span> </span>People</div>
+      <div class="header-meta-ref">REF: {proposalId}</div>
+    </div>
+    <div class="header-accent"></div>
+    <div class="page-inner">
+      <div class="section-headline">1. Executive Summary</div>
+      <div class="divider-line"></div>
+      <p class="prose-text">
+        Zynolo People is honored to present this customized business proposal to <strong>{clientName}</strong>. 
+        As an industry-leading workforce and technology enablement organization, our mission is to empower enterprises 
+        with flexible human resource allocation, automated operational workflows, and verified technical expertise.
+      </p>
+      <p class="prose-text">
+        In today's fast-paced enterprise ecosystem, scaling high-impact initiatives requires agility, compliance, and 
+        operational predictability. This engagement blueprint has been engineered specifically to provide <strong>{clientName}</strong> 
+        with reliable staffing guarantees, seamless team integration, and complete fiscal transparency.
+      </p>
+      <div class="key-points-grid">
+        <div class="point-card">
+          <div class="point-card-title">Engagement Model</div>
+          <div class="point-card-body">Augmented Technical &amp; Operational Staffing</div>
+        </div>
+        <div class="point-card">
+          <div class="point-card-title">Target Client</div>
+          <div class="point-card-body">{clientName}</div>
+        </div>
+        <div class="point-card">
+          <div class="point-card-title">Initial Term</div>
+          <div class="point-card-body">12 Calendar Months (Renewable)</div>
+        </div>
+        <div class="point-card">
+          <div class="point-card-title">SLA Compliance</div>
+          <div class="point-card-body">99.8% Resource Availability Guarantee</div>
+        </div>
+      </div>
+      <p class="prose-text">
+        Every talent deployment is backed by rigorous screening, end-to-end background verifications, and dedicated 
+        human capital managers ensuring complete strategic alignment with your company goals.
+      </p>
+    </div>
+    <div class="page-footer-nav">
+      <div class="footer-left-note">Zynolo People | Confidential Proposal | {proposalId}</div>
+      <div class="footer-page-indicator">Page 02</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       PAGE 3: SCOPE OF SERVICES
+  ══════════════════════════════════════════════ -->
+  <div class="proposal-page">
+    <div class="page-header-nav">
+      <div class="header-logo-text">Zynolo<span> </span>People</div>
+      <div class="header-meta-ref">REF: {proposalId}</div>
+    </div>
+    <div class="header-accent"></div>
+    <div class="page-inner">
+      <div class="section-headline">2. Scope of Services</div>
+      <div class="divider-line"></div>
+      <p class="prose-text">
+        The provisions outlined herein detail the comprehensive suite of talent management, technical services, and human resources 
+        operations delivered to <strong>{clientName}</strong>:
+      </p>
+      <ul class="check-list">
+        <li><strong>Talent Acquisition &amp; Dedicated Placement:</strong> Rapid sourcing, onboarding, and administrative integration of qualified professionals tailored to your departmental requirements.</li>
+        <li><strong>Payroll &amp; Statutory Compliance:</strong> Comprehensive management of payroll processing, statutory deductions, tax reporting, and labor law compliance across all active personnel.</li>
+        <li><strong>Continuous Performance Governance:</strong> Bi-weekly KPI tracking, quarterly performance audits, and stakeholder alignment meetings with your executive leadership.</li>
+        <li><strong>Infrastructure &amp; Security Compliance:</strong> Strict enforcement of enterprise security standards, non-disclosure compliance, and equipment lifecycle management.</li>
+        <li><strong>Operational Agility &amp; Scalability:</strong> Guaranteed 14-day turnaround for talent scale-up or replacement requests, minimizing workflow disruption.</li>
+      </ul>
+    </div>
+    <div class="page-footer-nav">
+      <div class="footer-left-note">Zynolo People | Confidential Proposal | {proposalId}</div>
+      <div class="footer-page-indicator">Page 03</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       PAGE 4: THE ZYNOLO ADVANTAGE
+  ══════════════════════════════════════════════ -->
+  <div class="proposal-page">
+    <div class="page-header-nav">
+      <div class="header-logo-text">Zynolo<span> </span>People</div>
+      <div class="header-meta-ref">REF: {proposalId}</div>
+    </div>
+    <div class="header-accent"></div>
+    <div class="page-inner">
+      <div class="section-headline">3. Why Partner with Zynolo People</div>
+      <div class="divider-line"></div>
+      <p class="prose-text">
+        Partnering with Zynolo People ensures enterprise-grade reliability, transparent governance, and cost optimization 
+        benchmarked against global best practices:
+      </p>
+      <div class="key-points-grid">
+        <div class="point-card">
+          <div class="point-card-title">Proven Capability</div>
+          <div class="point-card-body" style="font-size:12.5px;font-weight:400;color:#475569;margin-top:4px;">
+            Trusted by top-tier organizations to deploy and manage high-performing technical squads with over 98% retention.
+          </div>
+        </div>
+        <div class="point-card">
+          <div class="point-card-title">Transparent Costing</div>
+          <div class="point-card-body" style="font-size:12.5px;font-weight:400;color:#475569;margin-top:4px;">
+            No hidden overheads or surprise management fees. All rates and statutory tax obligations are itemized transparently.
+          </div>
+        </div>
+        <div class="point-card">
+          <div class="point-card-title">Enterprise Security</div>
+          <div class="point-card-body" style="font-size:12.5px;font-weight:400;color:#475569;margin-top:4px;">
+            SOC 2 Type II certified operations and strict confidentiality protocols to safeguard intellectual property.
+          </div>
+        </div>
+        <div class="point-card">
+          <div class="point-card-title">Dedicated Support</div>
+          <div class="point-card-body" style="font-size:12.5px;font-weight:400;color:#475569;margin-top:4px;">
+            A designated Key Account Director and HR Business Partner assigned exclusively to your organization.
+          </div>
+        </div>
+      </div>
+      <p class="prose-text" style="margin-top:12px;">
+        Our focus on operational excellence allows your leadership to remain focused on core strategic business drivers while we ensure 
+        uninterrupted workforce execution.
+      </p>
+    </div>
+    <div class="page-footer-nav">
+      <div class="footer-left-note">Zynolo People | Confidential Proposal | {proposalId}</div>
+      <div class="footer-page-indicator">Page 04</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       PAGE 5: FINANCIAL SUMMARY
+  ══════════════════════════════════════════════ -->
+  <div class="proposal-page">
+    <div class="page-header-nav">
+      <div class="header-logo-text">Zynolo<span> </span>People</div>
+      <div class="header-meta-ref">REF: {proposalId}</div>
+    </div>
+    <div class="header-accent"></div>
+    <div class="page-inner">
+      <div class="section-headline">4. Financial Proposal</div>
+      <div class="divider-line"></div>
+      <p class="prose-text">
+        The financial breakdown below details the investment required for the staffing services rendered to 
+        <strong>{clientName}</strong>:
+      </p>
+
+      <table class="pricing-table">
+        <thead>
+          <tr>
+            <th style="width:40%;">Description</th>
+            <th>Project Duration</th>
+            <th>Requirement Details</th>
+            <th>Amount (LKR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Customize and implement Standard Zynolo-People Product to: {clientName}</strong></td>
+            <td>12 Months</td>
+            <td>No of Employee: <strong>{employeeCount}</strong></td>
+            <td>{formatCurrency(baseAmount)}</td>
+          </tr>
+          <tr class="subtotal">
+            <td colspan="3"><strong>Base Amount (Excluding Taxes)</strong></td>
+            <td><strong>{formatCurrency(baseAmount)}</strong></td>
+          </tr>
+          <tr class="vat-highlight">
+            <td colspan="3">18% VAT: {formatCurrency(vatAmount)}</td>
+            <td>+ {formatCurrency(vatAmount)}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3">Total Amount Payable (Including VAT)</td>
+            <td>{formatCurrency(totalAmount)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:18px 22px; margin-top:12px;">
+        <p style="font-size:12px; color:#64748b; line-height:1.7;">
+          📌 <strong>Billing Note:</strong> Invoices are generated on the 1st of each calendar month with Net 30 payment terms. 
+          All transactions are settled via wire transfer. Pricing remains locked for the entire 12-month agreement term.
+        </p>
+      </div>
+    </div>
+    <div class="page-footer-nav">
+      <div class="footer-left-note">Zynolo People | Confidential Proposal | {proposalId}</div>
+      <div class="footer-page-indicator">Page 05</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       PAGE 6: TERMS & CONDITIONS
+  ══════════════════════════════════════════════ -->
+  <div class="proposal-page">
+    <div class="page-header-nav">
+      <div class="header-logo-text">Zynolo<span> </span>People</div>
+      <div class="header-meta-ref">REF: {proposalId}</div>
+    </div>
+    <div class="header-accent"></div>
+    <div class="page-inner">
+      <div class="section-headline">5. Terms &amp; Conditions</div>
+      <div class="divider-line"></div>
+
+      <div class="terms-item">
+        <div class="terms-item-num">1. Terminology &amp; Parties</div>
+        <div class="terms-item-content">
+          This Agreement is entered into by and between Zynolo People ("Service Provider") and 
+          <strong>{clientName}</strong> ("Client"). Both parties agree to execute their respective duties in good faith.
+        </div>
+      </div>
+
+      <div class="terms-item">
+        <div class="terms-item-num">2. Confidentiality &amp; Proprietary Rights</div>
+        <div class="terms-item-content">
+          All client proprietary data, trade secrets, software assets, and confidential information shared with Zynolo People 
+          or its deployed personnel shall remain the exclusive intellectual property of <strong>{clientName}</strong>.
+        </div>
+      </div>
+
+      <div class="terms-item">
+        <div class="terms-item-num">3. Payment Terms</div>
+        <div class="terms-item-content">
+          All invoices are denominated in Sri Lankan Rupees (LKR). Payments are due within thirty (30) calendar days from receipt of invoice.
+        </div>
+      </div>
+
+      <div class="terms-item expiry-clause">
+        <div class="terms-item-num">4. Proposal Validity Period</div>
+        <div class="terms-item-content">
+          4. This sales proposal will expire on <strong>{formatDate(expiryDate)}</strong>.
+          Execution or approval of this document after the aforementioned date is subject to revalidation and rate review by Zynolo People.
+        </div>
+      </div>
+
+      <div class="terms-item">
+        <div class="terms-item-num">5. Governing Law</div>
+        <div class="terms-item-content">
+          This proposal shall be construed and governed in accordance with the laws of the jurisdiction specified in the Master Service Agreement.
+        </div>
+      </div>
+    </div>
+    <div class="page-footer-nav">
+      <div class="footer-left-note">Zynolo People | Confidential Proposal | {proposalId}</div>
+      <div class="footer-page-indicator">Page 06</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       PAGE 7: CONTACT / REPRESENTATIVE DETAILS
+  ══════════════════════════════════════════════ -->
+  <div class="proposal-page" style="background:#0f172a;">
+    <div class="contact-container">
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:44px;">
+          <div>
+            <div class="brand-title" style="font-size:28px;">Zynolo<span style="color:#dc2626;"> </span>People</div>
+            <div class="brand-subtitle">Workforce Automation &amp; Solutions</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:1px;">Reference</div>
+            <div style="font-size:14px; color:#dc2626; font-weight:800; margin-top:2px;">{proposalId}</div>
+          </div>
+        </div>
+
+        <div class="contact-heading-main">Ready to <span>Connect</span></div>
+        <p style="color:#94a3b8; font-size:14px; margin-top:6px;">Your dedicated representative is available to answer any questions.</p>
+
+        <!-- Representative Details Card -->
+        <div class="rep-profile-card">
+          <div class="rep-card-subtitle">Dedicated Sales Representative</div>
+          <div class="rep-name-large">{repName}</div>
+
+          <div class="contact-line">
+            <div class="contact-icon-bubble">📱</div>
+            <div>
+              <div class="contact-line-label">Mobile Number</div>
+              <div class="contact-line-val">{repMobile}</div>
+            </div>
+          </div>
+
+          <div class="contact-line" style="margin-bottom:0;">
+            <div class="contact-icon-bubble">✉️</div>
+            <div>
+              <div class="contact-line-label">Email Address</div>
+              <div class="contact-line-val">{repEmail}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Corporate Info -->
+        <div class="company-card-dark">
+          <div style="font-size:18px; font-weight:800; color:#ffffff; margin-bottom:10px;">Zynolo People Global Inc.</div>
+          <div style="font-size:12.5px; color:#94a3b8; line-height:1.7;">
+            🌐 www.zynolopeople.com &nbsp;|&nbsp; 📧 contact@zynolopeople.com<br />
+            🏢 Head Office: 100 Enterprise Boulevard, Suite 500, New York, NY 10001
+          </div>
+        </div>
+      </div>
+
+      <div class="contact-final-footer">
+        <div style="color:rgba(255,255,255,0.85); font-size:11px;">
+          © {new Date().getFullYear()} Zynolo People. All rights reserved. | Ref: {proposalId}
+        </div>
+        <div style="color:#ffffff; font-weight:900; font-size:15px; letter-spacing:-0.5px;">
+          Zynolo People
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

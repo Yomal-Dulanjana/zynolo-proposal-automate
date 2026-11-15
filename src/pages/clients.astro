@@ -1,0 +1,11 @@
+---
+// src/pages/clients.astro — Corporate Accounts & Address Book
+import AppLayout from "../layouts/AppLayout.astro";
+import ClientDirectory from "../components/ClientDirectory";
+
+const user = Astro.locals.user!;
+---
+
+<AppLayout title="Clients & Accounts" user={user} activePage="clients">
+  <ClientDirectory client:load />
+</AppLayout>

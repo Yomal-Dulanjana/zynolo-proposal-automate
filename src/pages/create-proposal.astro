@@ -1,0 +1,33 @@
+---
+// src/pages/create-proposal.astro
+import AppLayout from "../layouts/AppLayout.astro";
+import ProposalForm from "../components/ProposalForm";
+
+const user = Astro.locals.user || {
+  userId: 0,
+  email: Astro.locals.adminUser?.email || "admin@dtech.lk",
+  fullName: "HOD Executive Administrator",
+};
+const cloneParam = Astro.url.searchParams.get("clone");
+const cloneId = cloneParam ? parseInt(cloneParam, 10) : undefined;
+---
+
+<AppLayout title="Create Proposal" user={user} activePage="create-proposal">
+  <div class="mb-8">
+    <div class="flex items-center gap-2 text-sm text-slate-400 mb-3">
+      <a href="/dashboard" class="hover:text-slate-600 transition-colors">Dashboard</a>
+      <span>›</span>
+      <span class="text-slate-700 font-medium">{cloneId ? "Duplicate Proposal" : "New Proposal"}</span>
+    </div>
+    <h2 class="font-heading font-semibold text-2xl text-slate-900 tracking-tight">
+      {cloneId ? "Duplicate & Re-issue Proposal" : "Create New Zynolo People Proposal"}
+    </h2>
+    <p class="text-slate-500 text-sm mt-1">
+      {cloneId 
+        ? "Review pre-populated client specifications. A fresh Proposal ID and 21-day validity window will be assigned upon generation."
+        : "Enter client specifications. An executive 7-page Zynolo People PDF proposal will be rendered and transmitted automatically."}
+    </p>
+  </div>
+
+  <ProposalForm mode="create" cloneId={cloneId} client:load />
+</AppLayout>

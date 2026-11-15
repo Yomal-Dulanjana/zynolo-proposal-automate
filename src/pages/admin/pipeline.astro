@@ -1,0 +1,17 @@
+---
+// src/pages/admin/pipeline.astro — Executive Company-Wide Pipeline & Deals Kanban Board
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import PipelineKanban from "../../components/PipelineKanban";
+
+// Ensure admin user is authenticated
+const adminUser = Astro.locals.adminUser;
+if (!adminUser || adminUser.role !== "HOD_ADMIN") {
+  return Astro.redirect("/login");
+}
+---
+
+<AdminLayout title="Pipeline & Deals" adminUser={adminUser} activePage="pipeline">
+  <div class="w-full max-w-none">
+    <PipelineKanban client:load isAdmin={true} />
+  </div>
+</AdminLayout>

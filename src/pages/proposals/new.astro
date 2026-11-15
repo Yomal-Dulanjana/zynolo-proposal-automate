@@ -1,0 +1,28 @@
+---
+// src/pages/proposals/new.astro
+import AppLayout from "../../layouts/AppLayout.astro";
+import ProposalForm from "../../components/ProposalForm";
+
+const user = Astro.locals.user || {
+  userId: 0,
+  email: Astro.locals.adminUser?.email || "admin@dtech.lk",
+  fullName: "HOD Executive Administrator",
+};
+---
+
+<AppLayout title="New Proposal" user={user} activePage="new-proposal">
+  <!-- Page header -->
+  <div class="mb-8">
+    <div class="flex items-center gap-2 text-sm text-slate-400 mb-3">
+      <a href="/proposals" class="hover:text-slate-600 transition-colors">Proposals</a>
+      <span>›</span>
+      <span class="text-slate-700 font-medium">New Proposal</span>
+    </div>
+    <h2 class="font-heading font-semibold text-2xl text-slate-900 tracking-tight">Create New Zynolo People Proposal</h2>
+    <p class="text-slate-500 text-sm mt-1">
+      Fill in the client details below. A pixel-perfect Zynolo People PDF will be generated and emailed automatically.
+    </p>
+  </div>
+
+  <ProposalForm mode="create" client:load />
+</AppLayout>

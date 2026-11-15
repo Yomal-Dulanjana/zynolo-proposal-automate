@@ -1,0 +1,9 @@
+---
+// src/pages/signup.astro
+import AuthLayout from "../layouts/AuthLayout.astro";
+import { SignUpForm } from "../components/AuthForms";
+---
+
+<AuthLayout title="Create Account — Zynolo People">
+  <SignUpForm client:load />
+</AuthLayout>

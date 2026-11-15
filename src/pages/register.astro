@@ -1,0 +1,9 @@
+---
+// src/pages/register.astro — Sales rep registration view
+import AuthLayout from "../layouts/AuthLayout.astro";
+import { SignUpForm } from "../components/AuthForms";
+---
+
+<AuthLayout title="Register - Zynolo People">
+  <SignUpForm client:load />
+</AuthLayout>

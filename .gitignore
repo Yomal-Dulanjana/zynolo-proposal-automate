@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Production Build Outputs
+dist/
+.astro/
+.vercel/
+
+# Environment Variables & Secrets
+.env
+.env.*
+.env.local
+.env.production
+!.env.example
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+
+# Local Generated Files
+public/pdfs/*.pdf
+!public/pdfs/.gitkeep

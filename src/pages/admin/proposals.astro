@@ -1,0 +1,114 @@
+---
+// src/pages/admin/proposals.astro — Company-Wide Master Proposal Vault
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { prisma } from "../../lib/prisma.js";
+import MasterProposalTable from "../../components/admin/MasterProposalTable";
+import {
+  ACTIVE_PIPELINE_STATUSES,
+  TERMINAL_WON_STATUSES,
+  TERMINAL_LOST_STATUSES,
+  TERMINAL_EXPIRED_STATUSES,
+} from "../../utils/financialAnalytics.js";
+import type { AdminProposalItem, RepPerformanceMetric } from "../../components/admin/types";
+
+// Ensure admin user is authenticated
+const adminUser = Astro.locals.adminUser;
+if (!adminUser || adminUser.role !== "HOD_ADMIN") {
+  return Astro.redirect("/login");
+}
+
+// 1. Fetch all registered sales representatives
+const salesUsers = await prisma.salesUser.findMany({
+  select: { id: true, fullName: true, email: true, mobileNumber: true },
+  orderBy: { fullName: "asc" },
+});
+
+// 2. Fetch all proposals with sales rep details
+const rawProposals = await prisma.proposal.findMany({
+  include: {
+    salesUser: {
+      select: { id: true, fullName: true, email: true, mobileNumber: true },
+    },
+  },
+  orderBy: { proposalDate: "desc" },
+});
+
+const proposals: AdminProposalItem[] = rawProposals.map((p) => ({
+  id: p.id,
+  proposalId: p.proposalId,
+  salesUserId: p.salesUserId,
+  salesRepName: p.salesUser?.fullName || "Unassigned Rep",
+  salesRepEmail: p.salesUser?.email || "-",
+  clientName: p.clientName,
+  clientEmail: p.clientEmail,
+  clientPhone: p.clientPhone,
+  employeeCount: p.employeeCount || 0,
+  baseAmount: Number(p.baseAmount || 0),
+  vatAmount: Number(p.vatAmount || 0),
+  totalAmount: Number(p.totalAmount || 0),
+  status: p.status as AdminProposalItem["status"],
+  proposalDate: new Date(p.proposalDate).toISOString(),
+  expiryDate: new Date(p.expiryDate).toISOString(),
+  pdfPath: p.pdfPath,
+  hodComment: p.hodComment,
+  reviewedAt: p.reviewedAt ? new Date(p.reviewedAt).toISOString() : null,
+  reviewedBy: p.reviewedBy,
+}));
+
+const reps: RepPerformanceMetric[] = salesUsers.map((rep) => {
+  const repProps = proposals.filter((p) => p.salesUserId === rep.id);
+  const repTotal = repProps.length;
+  const repWon = repProps.filter((p) =>
+    TERMINAL_WON_STATUSES.includes((p.status || "").toUpperCase())
+  );
+  const repPipeline = repProps.filter((p) =>
+    ACTIVE_PIPELINE_STATUSES.includes((p.status || "").toUpperCase())
+  );
+  const repLost = repProps.filter((p) =>
+    TERMINAL_LOST_STATUSES.includes((p.status || "").toUpperCase()) ||
+    TERMINAL_EXPIRED_STATUSES.includes((p.status || "").toUpperCase())
+  );
+
+  return {
+    repId: rep.id,
+    repName: rep.fullName,
+    email: rep.email,
+    phone: rep.mobileNumber || "",
+    totalProposals: repTotal,
+    pipelineCount: repPipeline.length,
+    pipelineValue: repPipeline.reduce((sum, p) => sum + (p.baseAmount || p.totalAmount), 0),
+    wonCount: repWon.length,
+    wonValue: repWon.reduce((sum, p) => sum + (p.baseAmount || p.totalAmount), 0),
+    lostCount: repLost.length,
+    lostValue: repLost.reduce((sum, p) => sum + (p.baseAmount || p.totalAmount), 0),
+    winRate: repTotal > 0 ? Number(((repWon.length / repTotal) * 100).toFixed(1)) : 0,
+  };
+});
+---
+
+<AdminLayout
+  title="All Company Proposals"
+  adminUser={adminUser}
+  activePage="proposals"
+>
+  <div class="w-full max-w-none space-y-6">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <h2 class="font-heading font-semibold text-2xl text-slate-900 tracking-tight">
+          Master Commercial Proposals Vault
+        </h2>
+        <p class="text-xs text-slate-500 font-sans mt-1">
+          Complete repository of all client proposals dispatched across the enterprise.
+        </p>
+      </div>
+    </div>
+
+    <MasterProposalTable
+      client:load
+      proposals={proposals}
+      reps={reps}
+      selectedRepId={null}
+      onSelectRep={() => {}}
+    />
+  </div>
+</AdminLayout>

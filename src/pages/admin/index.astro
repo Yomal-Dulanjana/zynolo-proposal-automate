@@ -1,0 +1,213 @@
+---
+// src/pages/admin/index.astro — Executive HOD Proposal Oversight Dashboard (SSR)
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { prisma } from "../../lib/prisma.js";
+import AdminDashboard from "../../components/admin/AdminDashboard";
+import {
+  ACTIVE_PIPELINE_STATUSES,
+  TERMINAL_WON_STATUSES,
+  TERMINAL_LOST_STATUSES,
+  TERMINAL_EXPIRED_STATUSES,
+  buildPipelineTrendData,
+  computeConversionRatio,
+  isInternalOrUnapprovedProposal,
+} from "../../utils/financialAnalytics.js";
+import type {
+  AdminDashboardData,
+  AdminProposalItem,
+  RepPerformanceMetric,
+  DepartmentMetrics,
+  MonthlyDepartmentTrend,
+} from "../../components/admin/types";
+
+// Ensure admin user is authenticated
+const adminUser = Astro.locals.adminUser;
+if (!adminUser || adminUser.role !== "HOD_ADMIN") {
+  return Astro.redirect("/login");
+}
+
+// 1. Fetch all registered sales representatives
+const salesUsers = await prisma.salesUser.findMany({
+  select: {
+    id: true,
+    fullName: true,
+    email: true,
+    mobileNumber: true,
+  },
+  orderBy: { fullName: "asc" },
+});
+
+// 2. Fetch all proposals across the entire sales force with rep relations
+const rawProposals = await prisma.proposal.findMany({
+  include: {
+    salesUser: {
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        mobileNumber: true,
+      },
+    },
+  },
+  orderBy: { proposalDate: "desc" },
+});
+
+// 3. Format Master Proposal items
+const cogsPerHead = Number(process.env.DEFAULT_COGS_PER_HEAD || "80.00");
+
+const proposals: AdminProposalItem[] = rawProposals.map((p) => {
+  const baseAmt = Number(p.baseAmount || 0);
+  const empCount = p.employeeCount || 0;
+  const staff = Math.max(1, empCount);
+  const totalAmt = Number(p.totalAmount || 0);
+  const baseRev = baseAmt > 0 ? baseAmt : staff * 400.0;
+  const cogsRate = Number(p.cogsRateWithVat) || cogsPerHead;
+  const totalCogs = Number(p.totalCogsAmount) || (staff * cogsRate);
+  const gp = Math.max(0, baseRev - totalCogs);
+  const gpPct = baseRev > 0 ? Number(((gp / baseRev) * 100).toFixed(1)) : 80.0;
+
+  return {
+    id: p.id,
+    proposalId: p.proposalId,
+    salesUserId: p.salesUserId,
+    salesRepName: p.salesUser?.fullName || "Unassigned Rep",
+    salesRepEmail: p.salesUser?.email || "-",
+    clientName: p.clientName,
+    clientEmail: p.clientEmail,
+    clientPhone: p.clientPhone,
+    employeeCount: empCount,
+    baseAmount: baseAmt,
+    vatAmount: Number(p.vatAmount || 0),
+    totalAmount: totalAmt,
+    cogsEstimated: cogsRate,
+    cogsRateWithVat: cogsRate,
+    totalCogsAmount: totalCogs,
+    grossProfit: gp,
+    grossMarginPct: gpPct,
+    lossReason: p.lossReason,
+    lossNotes: p.lossNotes,
+    lastContactedAt: p.lastContactedAt ? new Date(p.lastContactedAt).toISOString() : null,
+    status: p.status as AdminProposalItem["status"],
+    stage: p.stage,
+    isHodApproved: p.isHodApproved,
+    proposalDate: new Date(p.proposalDate).toISOString(),
+    expiryDate: new Date(p.expiryDate).toISOString(),
+    pdfPath: p.pdfPath,
+    hodComment: p.hodComment,
+    reviewedAt: p.reviewedAt ? new Date(p.reviewedAt).toISOString() : null,
+    reviewedBy: p.reviewedBy,
+  };
+});
+
+// 4. Compute Department-Wide Executive Metrics
+const totalProposalsDispatched = proposals.length;
+const wonProposals = proposals.filter((p) => p.status === "ACCEPTED");
+const wonCount = wonProposals.length;
+const totalRevenueWon = wonProposals.reduce((sum, p) => sum + p.totalAmount, 0);
+
+// Gross Profit Calculations:
+let totalWonRev = 0;
+let totalGrossProfitWon = 0;
+wonProposals.forEach((p) => {
+  const staff = Math.max(1, p.employeeCount || 1);
+  const rev = Math.max(p.baseAmount, staff * 400.0);
+  const cogs = staff * (p.cogsEstimated || cogsPerHead);
+  totalWonRev += rev;
+  totalGrossProfitWon += Math.max(0, rev - cogs);
+});
+const averageGrossMargin =
+  totalWonRev > 0
+    ? Number(((totalGrossProfitWon / totalWonRev) * 100).toFixed(1))
+    : 80.0;
+
+const activeProposals = proposals.filter((p) =>
+  !isInternalOrUnapprovedProposal(p) && ACTIVE_PIPELINE_STATUSES.includes((p.status || "").toUpperCase())
+);
+const activeCount = activeProposals.length;
+const totalPipelineValue = activeProposals.reduce((sum, p) => sum + p.totalAmount, 0);
+
+const lostCount = proposals.filter((p) =>
+  ["REJECTED", "EXPIRED"].includes(p.status)
+).length;
+
+const conversionRatio = computeConversionRatio(proposals);
+const overallCloseRate = conversionRatio.winRatePct;
+
+const metrics: DepartmentMetrics = {
+  totalRevenueWon,
+  totalPipelineValue,
+  totalProposalsDispatched,
+  overallCloseRate,
+  wonCount,
+  activeCount,
+  lostCount,
+  totalGrossProfitWon,
+  averageGrossMargin,
+};
+
+// 5. Compute Sales Team Performance Leaderboard
+const leaderboard: RepPerformanceMetric[] = salesUsers
+  .map((rep) => {
+    const repProps = proposals.filter((p) => p.salesUserId === rep.id);
+    const repTotal = repProps.length;
+    const repWon = repProps.filter((p) =>
+      TERMINAL_WON_STATUSES.includes((p.status || "").toUpperCase())
+    );
+    const repPipeline = repProps.filter((p) =>
+      ACTIVE_PIPELINE_STATUSES.includes((p.status || "").toUpperCase()) &&
+      !isInternalOrUnapprovedProposal(p)
+    );
+    const repLost = repProps.filter((p) =>
+      TERMINAL_LOST_STATUSES.includes((p.status || "").toUpperCase()) ||
+      TERMINAL_EXPIRED_STATUSES.includes((p.status || "").toUpperCase())
+    );
+
+    const wonValue = repWon.reduce((sum, p) => sum + (p.baseAmount || p.totalAmount), 0);
+    const pipelineValue = repPipeline.reduce((sum, p) => sum + (p.baseAmount || p.totalAmount), 0);
+    const lostValue = repLost.reduce((sum, p) => sum + (p.baseAmount || p.totalAmount), 0);
+    const repConversion = computeConversionRatio(repProps);
+    const winRate = repConversion.winRatePct;
+
+    return {
+      repId: rep.id,
+      repName: rep.fullName,
+      email: rep.email,
+      phone: rep.mobileNumber || "",
+      totalProposals: repTotal,
+      pipelineCount: repPipeline.length,
+      pipelineValue,
+      wonCount: repWon.length,
+      wonValue,
+      lostCount: repLost.length,
+      lostValue,
+      winRate,
+    };
+  })
+  .sort((a, b) => b.wonValue - a.wonValue || b.totalProposals - a.totalProposals);
+
+// 6. Compute 6-Month Department Revenue & Pipeline Trend (Gatekeeps unapproved HOD pending proposals)
+const trendData = buildPipelineTrendData(proposals, "monthly");
+const monthlyTrend: MonthlyDepartmentTrend[] = trendData.map((t) => ({
+  month: t.month,
+  proposed: t.proposed,
+  won: t.won,
+  lost: t.lost,
+  count: t.count,
+}));
+
+const dashboardData: AdminDashboardData = {
+  metrics,
+  leaderboard,
+  proposals,
+  monthlyTrend,
+  adminEmail: adminUser.email,
+};
+---
+
+<AdminLayout
+  title="Executive Overview"
+  adminUser={adminUser}
+  activePage="overview"
+>
+  <AdminDashboard client:load data={dashboardData} />
+</AdminLayout>
