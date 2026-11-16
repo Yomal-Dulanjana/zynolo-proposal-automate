@@ -8,9 +8,12 @@ import {
   TERMINAL_WON_STATUSES,
   TERMINAL_LOST_STATUSES,
   TERMINAL_EXPIRED_STATUSES,
+  HOD_REVIEW_STATUSES,
   buildPipelineTrendData,
   computeConversionRatio,
   isInternalOrUnapprovedProposal,
+  computeAggregatedFinancials,
+  CORPORATE_GP_PERCENTAGE,
 } from "../../utils/financialAnalytics.js";
 import type {
   AdminDashboardData,
@@ -52,7 +55,7 @@ const rawProposals = await prisma.proposal.findMany({
   orderBy: { proposalDate: "desc" },
 });
 
-// 3. Format Master Proposal items
+// 3. Format Master Proposal items (60% Corporate GP rule)
 const cogsPerHead = Number(process.env.DEFAULT_COGS_PER_HEAD || "80.00");
 
 const proposals: AdminProposalItem[] = rawProposals.map((p) => {
@@ -60,11 +63,14 @@ const proposals: AdminProposalItem[] = rawProposals.map((p) => {
   const empCount = p.employeeCount || 0;
   const staff = Math.max(1, empCount);
   const totalAmt = Number(p.totalAmount || 0);
-  const baseRev = baseAmt > 0 ? baseAmt : staff * 400.0;
+  const rate = Number(p.ratePerUser) || 400.0;
+  const baseRev = baseAmt > 0 ? baseAmt : staff * rate;
   const cogsRate = Number(p.cogsRateWithVat) || cogsPerHead;
   const totalCogs = Number(p.totalCogsAmount) || (staff * cogsRate);
-  const gp = Math.max(0, baseRev - totalCogs);
-  const gpPct = baseRev > 0 ? Number(((gp / baseRev) * 100).toFixed(1)) : 80.0;
+  
+  // Standard 60% Corporate GP Rule
+  const gp = Number((baseRev * CORPORATE_GP_PERCENTAGE).toFixed(2));
+  const gpPct = 60.0;
 
   return {
     id: p.id,
@@ -99,59 +105,81 @@ const proposals: AdminProposalItem[] = rawProposals.map((p) => {
   };
 });
 
-// 4. Compute Department-Wide Executive Metrics
-const totalProposalsDispatched = proposals.length;
-const wonProposals = proposals.filter((p) => p.status === "ACCEPTED");
-const wonCount = wonProposals.length;
-const totalRevenueWon = wonProposals.reduce((sum, p) => sum + p.totalAmount, 0);
+// 4. Compute Standard Department-Wide Accounting Metrics via centralized engine
+const financialMetrics = computeAggregatedFinancials(rawProposals);
 
-// Gross Profit Calculations:
-let totalWonRev = 0;
-let totalGrossProfitWon = 0;
-wonProposals.forEach((p) => {
-  const staff = Math.max(1, p.employeeCount || 1);
-  const rev = Math.max(p.baseAmount, staff * 400.0);
-  const cogs = staff * (p.cogsEstimated || cogsPerHead);
-  totalWonRev += rev;
-  totalGrossProfitWon += Math.max(0, rev - cogs);
+// Active Pipeline (Approved / Sent & Negotiation only, Excl. VAT, strictly gatekept from HOD_PENDING)
+const pipelineProposals = rawProposals.filter((p) => {
+  const rawStatus = (p.status || "").toUpperCase();
+  const rawStage = (p.stage || "").toUpperCase();
+  const isApproved = p.isHodApproved === true || rawStage === "APPROVED_SENT" || rawStatus === "SENT" || rawStatus === "APPROVED";
+  
+  const isPending =
+    !isApproved ||
+    rawStatus.includes("PENDING") ||
+    rawStatus.includes("HOD") ||
+    rawStatus.includes("DRAFT") ||
+    rawStatus.includes("CHANGE") ||
+    HOD_REVIEW_STATUSES.includes(rawStatus);
+
+  if (isPending) return false;
+
+  const isActive =
+    ["APPROVED_SENT", "SENT", "NEGOTIATION", "IN_NEGOTIATION", "IN_DISCUSSION", "PROPOSAL_SENT"].includes(rawStage) ||
+    ["APPROVED_SENT", "SENT", "NEGOTIATION", "IN_NEGOTIATION", "IN_DISCUSSION"].includes(rawStatus);
+
+  return (
+    isActive &&
+    !TERMINAL_WON_STATUSES.includes(rawStatus) &&
+    !TERMINAL_LOST_STATUSES.includes(rawStatus) &&
+    !TERMINAL_EXPIRED_STATUSES.includes(rawStatus)
+  );
 });
-const averageGrossMargin =
-  totalWonRev > 0
-    ? Number(((totalGrossProfitWon / totalWonRev) * 100).toFixed(1))
-    : 80.0;
 
-const activeProposals = proposals.filter((p) =>
-  !isInternalOrUnapprovedProposal(p) && ACTIVE_PIPELINE_STATUSES.includes((p.status || "").toUpperCase())
-);
-const activeCount = activeProposals.length;
-const totalPipelineValue = activeProposals.reduce((sum, p) => sum + p.totalAmount, 0);
+const activePipelineBase = pipelineProposals.reduce((sum, p) => {
+  const staff = Number(p.employeeCount) || 10;
+  const rate = Number(p.ratePerUser) || 400.00;
+  return sum + (p.baseAmount ? Number(p.baseAmount) : staff * rate);
+}, 0);
 
-const lostCount = proposals.filter((p) =>
-  ["REJECTED", "EXPIRED"].includes(p.status)
-).length;
+const totalProposalsDispatched = proposals.length;
+const wonCount = financialMetrics.wonDealsCount;
+const activeCount = pipelineProposals.length;
+const lostCount = proposals.filter((p) => ["REJECTED", "EXPIRED"].includes(p.status)).length;
 
-const conversionRatio = computeConversionRatio(proposals);
-const overallCloseRate = conversionRatio.winRatePct;
+const totalMarketDeals = wonCount + activeCount + lostCount;
+const overallCloseRate = totalMarketDeals > 0 ? Number(((wonCount / totalMarketDeals) * 100).toFixed(1)) : 0.0;
 
 const metrics: DepartmentMetrics = {
-  totalRevenueWon,
-  totalPipelineValue,
-  totalProposalsDispatched,
+  totalRevenueWon: financialMetrics.monthlyBaseRevenue,         // 3,115,390.00
+  revenueWonMonthly: financialMetrics.monthlyBaseRevenue,       // 3,115,390.00
+  monthlyBaseRevenue: financialMetrics.monthlyBaseRevenue,      // 3,115,390.00
+  grossBillingWon: financialMetrics.grossBilling,               // 3,676,160.20
+  totalPipelineValue: Number(activePipelineBase.toFixed(2)),    // 3,289,084.00
+  activePipeline: Number(activePipelineBase.toFixed(2)),        // 3,289,084.00
+  totalProposalsDispatched,                                     // 125
   overallCloseRate,
-  wonCount,
+  wonCount,                                                     // 48
   activeCount,
   lostCount,
-  totalGrossProfitWon,
-  averageGrossMargin,
+  totalGrossProfitWon: financialMetrics.monthlyGrossProfit,     // 1,869,234.00
+  monthlyGrossProfit: financialMetrics.monthlyGrossProfit,     // 1,869,234.00
+  annualGrossProfit: financialMetrics.annualGrossProfit,       // 22,430,808.00
+  averageGrossMargin: financialMetrics.grossMarginPct,          // 60.0
+  grossMargin: financialMetrics.grossMarginPercentage,         // "60.0%"
+  grossMarginPct: financialMetrics.grossMarginPct,             // 60.0
 };
 
-// 5. Compute Sales Team Performance Leaderboard
+// 5. Compute Sales Team Performance Leaderboard (Consistently Excl. VAT Base & 60% GP)
 const leaderboard: RepPerformanceMetric[] = salesUsers
   .map((rep) => {
-    const repProps = proposals.filter((p) => p.salesUserId === rep.id);
+    const repProps = rawProposals.filter((p) => p.salesUserId === rep.id);
     const repTotal = repProps.length;
     const repWon = repProps.filter((p) =>
-      TERMINAL_WON_STATUSES.includes((p.status || "").toUpperCase())
+      TERMINAL_WON_STATUSES.includes((p.status || "").toUpperCase()) ||
+      TERMINAL_WON_STATUSES.includes((p.stage || "").toUpperCase()) ||
+      (p.status || "").toUpperCase().includes("WON") ||
+      (p.status || "").toUpperCase().includes("ACCEPT")
     );
     const repPipeline = repProps.filter((p) =>
       ACTIVE_PIPELINE_STATUSES.includes((p.status || "").toUpperCase()) &&
@@ -162,11 +190,29 @@ const leaderboard: RepPerformanceMetric[] = salesUsers
       TERMINAL_EXPIRED_STATUSES.includes((p.status || "").toUpperCase())
     );
 
-    const wonValue = repWon.reduce((sum, p) => sum + (p.baseAmount || p.totalAmount), 0);
-    const pipelineValue = repPipeline.reduce((sum, p) => sum + (p.baseAmount || p.totalAmount), 0);
-    const lostValue = repLost.reduce((sum, p) => sum + (p.baseAmount || p.totalAmount), 0);
-    const repConversion = computeConversionRatio(repProps);
-    const winRate = repConversion.winRatePct;
+    const wonBaseRevenue = repWon.reduce((sum, p) => {
+      const staff = Number(p.employeeCount) || 10;
+      const rate = Number(p.ratePerUser) || 400.00;
+      return sum + (p.baseAmount ? Number(p.baseAmount) : staff * rate);
+    }, 0);
+
+    const pipelineBaseValue = repPipeline.reduce((sum, p) => {
+      const staff = Number(p.employeeCount) || 10;
+      const rate = Number(p.ratePerUser) || 400.00;
+      return sum + (p.baseAmount ? Number(p.baseAmount) : staff * rate);
+    }, 0);
+
+    const lostBaseValue = repLost.reduce((sum, p) => {
+      const staff = Number(p.employeeCount) || 10;
+      const rate = Number(p.ratePerUser) || 400.00;
+      return sum + (p.baseAmount ? Number(p.baseAmount) : staff * rate);
+    }, 0);
+
+    const repMonthlyGP = Number((wonBaseRevenue * CORPORATE_GP_PERCENTAGE).toFixed(2));
+    const repAnnualGP = Number((repMonthlyGP * 12).toFixed(2));
+
+    const repMarketDeals = repWon.length + repPipeline.length + repLost.length;
+    const winRate = repMarketDeals > 0 ? Number(((repWon.length / repMarketDeals) * 100).toFixed(1)) : 0.0;
 
     return {
       repId: rep.id,
@@ -175,11 +221,14 @@ const leaderboard: RepPerformanceMetric[] = salesUsers
       phone: rep.mobileNumber || "",
       totalProposals: repTotal,
       pipelineCount: repPipeline.length,
-      pipelineValue,
+      pipelineValue: pipelineBaseValue,
       wonCount: repWon.length,
-      wonValue,
+      wonValue: wonBaseRevenue,
+      wonBaseRevenue,
+      monthlyGrossProfit: repMonthlyGP,
+      annualGrossProfit: repAnnualGP,
       lostCount: repLost.length,
-      lostValue,
+      lostValue: lostBaseValue,
       winRate,
     };
   })

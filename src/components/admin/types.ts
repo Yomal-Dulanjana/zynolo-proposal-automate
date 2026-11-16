@@ -53,6 +53,9 @@ export interface RepPerformanceMetric {
   pipelineValue: number;
   wonCount: number;
   wonValue: number;
+  wonBaseRevenue?: number;
+  monthlyGrossProfit?: number;
+  annualGrossProfit?: number;
   lostCount: number;
   lostValue: number;
   winRate: number; // percentage, e.g. 33.3
@@ -60,14 +63,22 @@ export interface RepPerformanceMetric {
 
 export interface DepartmentMetrics {
   totalRevenueWon: number;
+  revenueWonMonthly?: number;
+  monthlyBaseRevenue?: number;
+  grossBillingWon?: number;
   totalPipelineValue: number;
+  activePipeline?: number;
   totalProposalsDispatched: number;
   overallCloseRate: number; // percentage
   wonCount: number;
   activeCount: number;
   lostCount: number;
   totalGrossProfitWon?: number;
+  monthlyGrossProfit?: number;
+  annualGrossProfit?: number;
   averageGrossMargin?: number;
+  grossMargin?: string | number;
+  grossMarginPct?: number;
 }
 
 export interface MonthlyDepartmentTrend {

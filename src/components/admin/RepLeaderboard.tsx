@@ -162,13 +162,20 @@ export default function RepLeaderboard({
                       </span>
                     </td>
 
-                    {/* Closed Revenue */}
+                    {/* Closed Revenue (Excl. VAT Base Subscription & 60% GP Tooltip) */}
                     <td className="py-3.5 px-4 text-right align-middle">
-                      <div className="font-heading font-semibold text-slate-900 text-sm tabular-nums">
-                        {formatLKR(rep.wonValue)}
+                      <div
+                        className="font-heading font-semibold text-slate-900 text-sm tabular-nums cursor-help"
+                        title={`Net Monthly Base Revenue: ${formatLKR(rep.wonBaseRevenue || rep.wonValue)} (Excl. VAT) | Monthly GP (60%): ${formatLKR(rep.monthlyGrossProfit || rep.wonValue * 0.60)}`}
+                      >
+                        {formatLKR(rep.wonBaseRevenue || rep.wonValue)}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-sans">
-                        Pipeline: {formatLKR(rep.pipelineValue)}
+                      <div
+                        className="text-[10px] text-emerald-600 font-sans font-medium cursor-help flex items-center justify-end gap-1 mt-0.5"
+                        title={`Annualized GP (12M): ${formatLKR((rep.monthlyGrossProfit || rep.wonValue * 0.60) * 12)}`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                        <span>60% GP: {formatLKR(rep.monthlyGrossProfit || rep.wonValue * 0.60)}</span>
                       </div>
                     </td>
 

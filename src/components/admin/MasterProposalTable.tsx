@@ -508,7 +508,7 @@ export default function MasterProposalTable({
                         Base: {formatLKR(p.baseAmount)} | VAT 18%: {formatLKR(p.vatAmount || (p.totalAmount - p.baseAmount))}
                       </div>
                       <div className="text-[10px] font-medium text-emerald-600 font-sans mt-0.5">
-                        Est. GP: {formatLKR(p.grossProfit || 0)} ({p.grossMarginPct || 80.0}%)
+                        GP (60%): {formatLKR(p.grossProfit || (p.baseAmount * 0.60))} ({p.grossMarginPct || 60.0}%)
                       </div>
                     </td>
 

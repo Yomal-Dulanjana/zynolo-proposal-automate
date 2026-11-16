@@ -51,77 +51,90 @@ export default function AdminDashboard({ data }: { data: AdminDashboardData }) {
         </div>
       </div>
 
-      {/* 2. Top Executive KPI Bar (6 Cards with Gross Profit Governance) */}
+      {/* 2. Top Executive KPI Bar (6 Cards strictly aligned with Standard Accounting & 60% GP) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         
-        {/* 1. Department Revenue Won */}
+        {/* 1. Department Revenue Won (Excl. VAT) */}
         <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-md transition-all relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">Revenue Won</span>
+            <span className="text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">
+              Revenue Won (Excl. VAT)
+            </span>
             <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center">
               <Trophy size={18} />
             </div>
           </div>
           <div className="font-heading font-semibold text-xl text-slate-900 tracking-tight tabular-nums">
-            {formatLKR(metrics.totalRevenueWon)}
+            {formatLKR(metrics.revenueWonMonthly || metrics.totalRevenueWon)} / mo
           </div>
           <div className="text-[11px] font-medium text-slate-500 mt-1 font-sans">
-            {metrics.wonCount} contracts closed won
+            {metrics.wonCount} of {metrics.totalProposalsDispatched} closed won &bull; Gross Billing: {formatLKR(metrics.grossBillingWon || ((metrics.revenueWonMonthly || metrics.totalRevenueWon) * 1.18))}
           </div>
         </div>
 
-        {/* 2. Total Department Gross Profit (Won) */}
+        {/* 2. Total Department Gross Profit (Monthly 60%) */}
         <div className="bg-white rounded-xl border border-emerald-200/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-md transition-all relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-heading font-semibold text-emerald-800 uppercase tracking-wider">Dept Gross Profit</span>
+            <span className="text-xs font-heading font-semibold text-emerald-800 uppercase tracking-wider">
+              Dept Gross Profit (Monthly)
+            </span>
             <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
               <DollarSign size={18} />
             </div>
           </div>
-          <div className="font-heading font-semibold text-xl text-emerald-600 tracking-tight tabular-nums">
-            {formatLKR(metrics.totalGrossProfitWon || 0)}
+          <div className="font-heading font-semibold text-xl text-emerald-600 tracking-tight tabular-nums flex items-baseline justify-between gap-1">
+            <span>{formatLKR(metrics.monthlyGrossProfit || metrics.totalGrossProfitWon || 0)}</span>
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex-shrink-0">
+              60% Corporate GP Rule
+            </span>
           </div>
-          <div className="text-[11px] font-medium text-emerald-600/90 mt-1 font-sans">
-            Won base minus LKR 80.00 COGS
+          <div className="text-[11px] font-medium text-emerald-700 mt-1 font-sans truncate" title={`Annualized GP (12M): ${formatLKR(metrics.annualGrossProfit || ((metrics.monthlyGrossProfit || metrics.totalGrossProfitWon || 0) * 12))}`}>
+            Annualized GP (12M): {formatLKR(metrics.annualGrossProfit || ((metrics.monthlyGrossProfit || metrics.totalGrossProfitWon || 0) * 12))}
           </div>
         </div>
 
         {/* 3. Average Gross Margin */}
         <div className="bg-white rounded-xl border border-blue-200/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-md transition-all relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-heading font-semibold text-blue-800 uppercase tracking-wider">Avg Gross Margin</span>
+            <span className="text-xs font-heading font-semibold text-blue-800 uppercase tracking-wider">
+              Avg Gross Margin
+            </span>
             <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
               <TrendingUp size={18} />
             </div>
           </div>
           <div className="font-heading font-semibold text-xl text-blue-600 tracking-tight tabular-nums">
-            {metrics.averageGrossMargin || 80.0}%
+            {(metrics.grossMarginPct || metrics.averageGrossMargin || 60.0).toFixed(1)}%
           </div>
           <div className="text-[11px] font-medium text-blue-600/90 mt-1 font-sans">
-            Department profit margin
+            Standard Zynolo HRM Profit Margin
           </div>
         </div>
 
-        {/* 4. Active Pipeline in Motion */}
+        {/* 4. Active Pipeline in Motion (Excl. VAT) */}
         <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-md transition-all relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">Active Pipeline</span>
+            <span className="text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">
+              Active Pipeline
+            </span>
             <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 text-sky-600 flex items-center justify-center">
               <BarChart3 size={18} />
             </div>
           </div>
           <div className="font-heading font-semibold text-xl text-slate-900 tracking-tight tabular-nums">
-            {formatLKR(metrics.totalPipelineValue)}
+            {formatLKR(metrics.activePipeline || metrics.totalPipelineValue)}
           </div>
           <div className="text-[11px] font-medium text-slate-500 mt-1 font-sans">
-            {metrics.activeCount} live deals in negotiation
+            Base volume currently in negotiation
           </div>
         </div>
 
         {/* 5. Total Proposals Dispatched */}
         <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-md transition-all relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">Proposals</span>
+            <span className="text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">
+              Proposals
+            </span>
             <div className="w-9 h-9 rounded-xl bg-violet-50 border border-violet-100 text-violet-600 flex items-center justify-center">
               <FileText size={18} />
             </div>
@@ -137,7 +150,9 @@ export default function AdminDashboard({ data }: { data: AdminDashboardData }) {
         {/* 6. Overall Close / Win Rate */}
         <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-md transition-all relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">Close Rate</span>
+            <span className="text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">
+              Close Rate
+            </span>
             <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-100 text-red-600 flex items-center justify-center">
               <PieIcon size={18} />
             </div>
@@ -146,7 +161,7 @@ export default function AdminDashboard({ data }: { data: AdminDashboardData }) {
             {metrics.overallCloseRate}%
           </div>
           <div className="text-[11px] font-medium text-slate-500 mt-1 font-sans">
-            Won Deals / Total
+            {metrics.wonCount} won of {metrics.totalProposalsDispatched} total
           </div>
         </div>
 
