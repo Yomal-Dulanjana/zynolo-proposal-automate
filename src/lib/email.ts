@@ -45,6 +45,9 @@ export function createTransport(config: SmtpConfig = getSmtpConfig()) {
     tls: {
       rejectUnauthorized: !config.allowSelfSigned,
     },
+    connectionTimeout: 8000, // 8s max
+    greetingTimeout: 5000,   // 5s max
+    socketTimeout: 10000,    // 10s max
   });
 }
 
@@ -90,7 +93,7 @@ export interface ProposalEmailOptions {
   proposalId: string;
   totalAmount: string;
   expiryDate: string;
-  pdfBuffer: Buffer;
+  pdfBuffer?: Buffer | null;
   publicToken?: string;
   baseUrl?: string;
 }
@@ -105,13 +108,14 @@ export async function sendProposalEmail(
 
   const baseOrigin = opts.baseUrl ? opts.baseUrl.replace(/\/+$/, "") : getBaseUrl();
 
-  const baseAttachments: Mail.Attachment[] = [
-    {
+  const baseAttachments: Mail.Attachment[] = [];
+  if (opts.pdfBuffer && opts.pdfBuffer.length > 0) {
+    baseAttachments.push({
       filename: `Proposal_${opts.proposalId}.pdf`,
       content: opts.pdfBuffer,
       contentType: "application/pdf",
-    },
-  ];
+    });
+  }
   if (logoAttachment) {
     baseAttachments.push(logoAttachment);
   }
@@ -357,7 +361,7 @@ export interface FollowUpEmailOptions {
   expiryDate: string;
   remainingDays: number;
   publicToken?: string;
-  pdfBuffer: Buffer;
+  pdfBuffer?: Buffer | null;
   baseUrl?: string;
 }
 
@@ -369,13 +373,14 @@ export async function sendFollowUpEmail(opts: FollowUpEmailOptions): Promise<voi
 
   const baseOrigin = opts.baseUrl ? opts.baseUrl.replace(/\/+$/, "") : getBaseUrl();
 
-  const baseAttachments: Mail.Attachment[] = [
-    {
+  const baseAttachments: Mail.Attachment[] = [];
+  if (opts.pdfBuffer && opts.pdfBuffer.length > 0) {
+    baseAttachments.push({
       filename: `Proposal_${opts.proposalId}.pdf`,
       content: opts.pdfBuffer,
       contentType: "application/pdf",
-    },
-  ];
+    });
+  }
   if (logoAttachment) {
     baseAttachments.push(logoAttachment);
   }

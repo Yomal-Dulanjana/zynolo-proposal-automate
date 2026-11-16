@@ -161,22 +161,25 @@ export default function WaitingProposalsTable({ initialProposals }: WaitingPropo
   // 2. Approve & Send Handler
   const handleApprove = async () => {
     if (!approvingProposal) return;
+    const targetProposal = approvingProposal;
     try {
       setIsSubmitting(true);
-      const res = await fetch(`/api/admin/proposals/${approvingProposal.id}/approve`, {
+      const res = await fetch(`/api/admin/proposals/${targetProposal.id}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        showToast("error", data.message || "Failed to approve proposal.");
+        showToast("error", data.message || data.error || "Failed to approve proposal.");
         return;
       }
 
-      setProposals((prev) => prev.filter((p) => p.id !== approvingProposal.id));
+      // Optimistically remove approved proposal from the Waiting Proposals list
+      setProposals((prev) => prev.filter((p) => p.id !== targetProposal.id));
       showToast(
         "success",
-        `Proposal ${approvingProposal.proposalId} approved! Dispatched to ${approvingProposal.clientEmail} and ${approvingProposal.salesRepEmail}.`
+        data.message ||
+          `Proposal ${targetProposal.proposalId} approved! Dispatched to ${targetProposal.clientEmail} and ${targetProposal.salesRepEmail}.`
       );
       setApprovingProposal(null);
     } catch {

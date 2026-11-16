@@ -1,141 +1,100 @@
-// src/pages/api/admin/proposals/[id]/approve.ts — Approve & Dispatch Proposal
+// src/pages/api/admin/proposals/[id]/approve.ts — Serverless-Resilient Proposal Approval
 import type { APIRoute } from "astro";
-import fs from "fs";
-import path from "path";
 import { prisma } from "../../../../../lib/prisma.js";
 import { getAdminAuthUser } from "../../../../../lib/adminAuth.js";
-import { sendProposalEmail } from "../../../../../lib/email.js";
-import { formatCurrency, formatDate } from "../../../../../lib/proposals.js";
-import { generateProposalPDF } from "../../../../../lib/pdf.js";
-import { getOrigin } from "../../../../../lib/url.js";
+import { sendProposalApprovedEmails } from "../../../../../utils/emailService.js";
+
+export const prerender = false;
 
 export const POST: APIRoute = async ({ params, request, locals }) => {
   const adminUser = locals.adminUser || getAdminAuthUser(request);
   if (!adminUser || adminUser.role !== "HOD_ADMIN") {
-    return Response.json(
-      { success: false, message: "Unauthorized. Executive Admin session required." },
-      { status: 401 }
+    return new Response(
+      JSON.stringify({ success: false, error: "Unauthorized. Executive Admin session required." }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
     );
   }
 
-  const id = Number(params.id);
-  if (!id || isNaN(id)) {
-    return Response.json(
-      { success: false, message: "Invalid proposal ID." },
-      { status: 400 }
+  const rawId = params.id;
+  if (!rawId) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Proposal ID is required." }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 
   try {
-    const proposal = await prisma.proposal.findUnique({
-      where: { id },
+    const numId = Number(rawId);
+    const isNumeric = !isNaN(numId) && numId > 0;
+
+    // 1. Locate the proposal
+    const proposal = await prisma.proposal.findFirst({
+      where: isNumeric
+        ? { OR: [{ id: numId }, { proposalId: rawId }] }
+        : { proposalId: rawId },
       include: {
-        salesUser: {
-          select: {
-            fullName: true,
-            mobileNumber: true,
-            email: true,
-          },
-        },
+        salesUser: true,
       },
     });
 
     if (!proposal) {
-      return Response.json(
-        { success: false, message: "Proposal not found." },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ success: false, error: "Proposal record not found." }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Load or regenerate PDF buffer
-    let pdfBuffer: Buffer;
-    const possiblePaths = [
-      path.resolve(process.cwd(), "public", proposal.pdfPath.replace(/^\/+/, "")),
-      path.resolve(process.cwd(), "public/pdfs", `${proposal.proposalId}.pdf`),
-    ];
-
-    let foundPath = possiblePaths.find((p) => fs.existsSync(p));
-    if (foundPath) {
-      pdfBuffer = fs.readFileSync(foundPath);
-    } else {
-      // Regenerate PDF if file was missing
-      pdfBuffer = await generateProposalPDF({
-        proposalId: proposal.proposalId,
-        version: proposal.version,
-        proposalDate: proposal.proposalDate,
-        expiryDate: proposal.expiryDate,
-        clientName: proposal.clientName,
-        clientAddress: proposal.clientAddress,
-        clientEmail: proposal.clientEmail,
-        clientPhone: proposal.clientPhone,
-        clientLogoUrl: proposal.clientLogoUrl,
-        employeeCount: proposal.employeeCount,
-        baseAmount: Number(proposal.baseAmount),
-        vatAmount: Number(proposal.vatAmount),
-        vatPercentage: Number(proposal.vatPercentage),
-        totalAmount: Number(proposal.totalAmount),
-        repName: proposal.salesUser.fullName,
-        repMobile: proposal.salesUser.mobileNumber,
-        repEmail: proposal.salesUser.email,
-      });
-
-      const saveDir = path.resolve(process.cwd(), "public/pdfs");
-      if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true });
-      fs.writeFileSync(path.join(saveDir, `${proposal.proposalId}.pdf`), pdfBuffer);
-    }
-
-    // 1. Update proposal status to APPROVED
-    const updated = await prisma.proposal.update({
-      where: { id },
+    // 2. Perform Database State Transition First (Atomic)
+    const updatedProposal = await prisma.proposal.update({
+      where: { id: proposal.id },
       data: {
         status: "APPROVED",
         stage: "PROPOSAL_SENT",
         isHodApproved: true,
         probability: 60,
         reviewedAt: new Date(),
-        reviewedBy: adminUser.email,
+        reviewedBy: adminUser.email || "HOD Admin",
       },
     });
 
-    // 2. Dispatch emails (to client and sales rep)
+    // 3. Dispatch Parallel Emails with Fallback (Non-blocking / Resilient)
     let emailDispatched = false;
-    let emailError: string | null = null;
-    const baseUrl = getOrigin(request);
+    let emailErrorMsg: string | null = null;
 
     try {
-      await sendProposalEmail({
-        clientName: proposal.clientName,
-        clientEmail: proposal.clientEmail,
-        clientPhone: proposal.clientPhone || undefined,
-        repName: proposal.salesUser.fullName,
-        repMobile: proposal.salesUser.mobileNumber,
-        repEmail: proposal.salesUser.email,
-        proposalId: proposal.proposalId,
-        totalAmount: formatCurrency(Number(proposal.totalAmount)),
-        expiryDate: formatDate(proposal.expiryDate),
-        publicToken: proposal.publicToken,
-        pdfBuffer,
-        baseUrl,
-      });
+      await sendProposalApprovedEmails(proposal, request);
       emailDispatched = true;
     } catch (mailErr: any) {
-      emailError = mailErr?.message || "Failed to dispatch email";
-      console.error("[approve POST] Email dispatch error:", mailErr);
+      console.error("Email dispatch or PDF compilation failure:", mailErr);
+      emailErrorMsg = mailErr?.message || "SMTP or PDF compilation failed";
+      // Proposal remains APPROVED in DB
     }
 
-    return Response.json({
-      success: true,
-      message: emailDispatched
-        ? `Proposal ${proposal.proposalId} approved and dispatched via email.`
-        : `Proposal approved, but email dispatch failed: ${emailError}`,
-      emailSent: emailDispatched,
-      proposal: updated,
-    });
-  } catch (err: any) {
-    console.error("[approve POST]", err);
-    return Response.json(
-      { success: false, message: err?.message || "Failed to approve proposal." },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: emailDispatched
+          ? `Proposal ${proposal.proposalId} approved and notification emails dispatched.`
+          : `Proposal approved successfully (Email warning: ${emailErrorMsg})`,
+        proposal: updatedProposal,
+        emailDispatched,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (error: any) {
+    console.error("Critical proposal approval error:", error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message || "Internal database error during approval.",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
     );
   }
 };
