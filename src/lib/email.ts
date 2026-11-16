@@ -183,7 +183,11 @@ export async function sendProposalEmail(
     </div>
 
     <p class="message">
-      The complete, executive proposal is attached to this communication as an official PDF document for your review and formal consideration.
+      The complete, executive proposal is attached to this communication as an official PDF document for your review and formal consideration. You can also view or download your proposal directly online at:
+      <br />
+      <a href="${baseOrigin}/p/${opts.publicToken || opts.proposalId}" style="color: #dc2626; font-weight: 600; text-decoration: underline;" target="_blank">
+        ${baseOrigin}/p/${opts.publicToken || opts.proposalId}
+      </a>
     </p>
 
     <div class="rep-info">
@@ -433,7 +437,11 @@ export async function sendFollowUpEmail(opts: FollowUpEmailOptions): Promise<voi
 
     <p class="message">
       If you require any clarifications or wish to finalize the arrangement, please feel free to reach out directly to me. 
-      The original proposal PDF is attached to this communication for your convenience.
+      The original proposal PDF is attached to this communication, or you can access it directly online at:
+      <br />
+      <a href="${baseOrigin}/p/${opts.publicToken || opts.proposalId}" style="color: #dc2626; font-weight: 600; text-decoration: underline;" target="_blank">
+        ${baseOrigin}/p/${opts.publicToken || opts.proposalId}
+      </a>
     </p>
 
     <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">

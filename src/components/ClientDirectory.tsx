@@ -163,7 +163,7 @@ export default function ClientDirectory() {
         setFormData((prev) => ({ ...prev, logoUrl: data.url }));
         showToast("success", "Logo uploaded successfully!");
       } else {
-        showToast("error", data.message || "Logo upload failed.");
+        showToast("error", data.message || data.error || "Logo upload failed.");
       }
     } catch {
       showToast("error", "Error uploading logo.");

@@ -199,12 +199,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
       repEmail: salesUser.email,
     });
 
-    // Persist PDF
-    ensureDir(PDF_DIR);
+    // Persist PDF (safe on serverless read-only filesystems)
     const pdfFilename = `${proposalId}.pdf`;
-    const pdfAbsPath = path.join(PDF_DIR, pdfFilename);
-    fs.writeFileSync(pdfAbsPath, pdfBuffer);
     const pdfPath = `/pdfs/${pdfFilename}`;
+    try {
+      ensureDir(PDF_DIR);
+      const pdfAbsPath = path.join(PDF_DIR, pdfFilename);
+      fs.writeFileSync(pdfAbsPath, pdfBuffer);
+    } catch (fsErr) {
+      console.warn("[proposals POST] Serverless read-only filesystem detected, skipping local PDF cache write:", fsErr);
+    }
 
     // Upsert reusable ClientProfile
     try {

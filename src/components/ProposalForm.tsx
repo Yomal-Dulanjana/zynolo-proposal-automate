@@ -243,10 +243,11 @@ export default function ProposalForm({
       fd.append("logo", file);
       const res = await fetch("/api/upload-logo", { method: "POST", body: fd });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.url) {
         handleChange("clientLogoUrl", data.url);
+        setLogoPreview(data.url);
       } else {
-        setError(data.message ?? "Logo upload failed.");
+        setError(data.message || data.error || "Logo upload failed.");
         setLogoPreview(null);
       }
     } catch {

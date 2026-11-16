@@ -74,9 +74,13 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
         repEmail: proposal.salesUser.email,
       });
 
-      const pdfDir = path.resolve(process.cwd(), "public/pdfs");
-      if (!fs.existsSync(pdfDir)) fs.mkdirSync(pdfDir, { recursive: true });
-      fs.writeFileSync(path.join(pdfDir, `${proposal.proposalId}.pdf`), pdfBuffer);
+      try {
+        const pdfDir = path.resolve(process.cwd(), "public/pdfs");
+        if (!fs.existsSync(pdfDir)) fs.mkdirSync(pdfDir, { recursive: true });
+        fs.writeFileSync(path.join(pdfDir, `${proposal.proposalId}.pdf`), pdfBuffer);
+      } catch (cacheErr) {
+        console.warn("[proposals/[id]/pdf GET] Serverless read-only filesystem detected, streaming buffer directly:", cacheErr);
+      }
     }
 
     return new Response(pdfBuffer, {

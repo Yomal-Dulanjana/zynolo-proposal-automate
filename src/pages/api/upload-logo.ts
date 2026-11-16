@@ -1,58 +1,83 @@
-// src/pages/api/upload-logo.ts — Multipart file upload for client logos
+// src/pages/api/upload-logo.ts — Serverless In-Memory Base64 Logo Processor
 import type { APIRoute } from "astro";
-import fs from "fs";
-import path from "path";
-import { randomUUID } from "crypto";
-import { getOrigin, getAbsoluteUrl } from "../../lib/url.js";
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "./public/uploads";
-const MAX_SIZE = parseInt(process.env.MAX_FILE_SIZE ?? "5242880", 10); // 5MB default
-
-function ensureDir(dir: string) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
+export const prerender = false;
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  if (!locals.user && !locals.adminUser) {
-    return Response.json({ success: false, message: "Unauthorized." }, { status: 401 });
-  }
-
   try {
+    // Basic auth check: accept authenticated sales user or HOD admin
+    if (!locals?.user && !locals?.adminUser) {
+      // Also check headers if available
+      return new Response(
+        JSON.stringify({ error: "Unauthorized." }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const contentType = request.headers.get("content-type") || "";
+
+    if (!contentType.includes("multipart/form-data")) {
+      return new Response(
+        JSON.stringify({ error: "Invalid content type. Expected multipart/form-data." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get("logo") as File | null;
 
-    if (!file || file.size === 0) {
-      return Response.json({ success: false, message: "No file provided." }, { status: 400 });
-    }
-
-    if (file.size > MAX_SIZE) {
-      return Response.json(
-        { success: false, message: "File too large. Maximum size is 5MB." },
-        { status: 400 }
+    if (!file || typeof file === "string" || file.size === 0) {
+      return new Response(
+        JSON.stringify({ error: "No logo file provided." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
-    if (!allowedTypes.includes(file.type)) {
-      return Response.json(
-        { success: false, message: "Invalid file type. Only images are allowed." },
-        { status: 400 }
+    // Size limit check: 2MB max
+    if (file.size > 2 * 1024 * 1024) {
+      return new Response(
+        JSON.stringify({ error: "Logo size must be less than 2MB." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const ext = file.name.split(".").pop() ?? "png";
-    const filename = `logo_${randomUUID()}.${ext}`;
-    ensureDir(UPLOAD_DIR);
-    const absPath = path.join(UPLOAD_DIR, filename);
+    // Validate mime type
+    const mimeType = file.type || "image/png";
+    if (!["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"].includes(mimeType)) {
+      return new Response(
+        JSON.stringify({ error: "Supported formats: PNG, JPG, WEBP, SVG." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
+    // Convert Buffer directly to Base64 in-memory (ZERO DISK WRITES)
     const arrayBuffer = await file.arrayBuffer();
-    fs.writeFileSync(absPath, Buffer.from(arrayBuffer));
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Data = buffer.toString("base64");
+    const dataUri = `data:${mimeType};base64,${base64Data}`;
 
-    const publicUrl = `/uploads/${filename}`;
-    const absoluteUrl = getAbsoluteUrl(publicUrl, request);
-    return Response.json({ success: true, url: publicUrl, absoluteUrl });
-  } catch (err) {
-    console.error("[upload-logo]", err);
-    return Response.json({ success: false, message: "Upload failed." }, { status: 500 });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        url: dataUri, // Directly usable as <img src={url} /> and inside PDF generation
+        absoluteUrl: dataUri,
+        message: "Logo uploaded and processed successfully.",
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (error: any) {
+    console.error("Serverless logo processing error:", error);
+    return new Response(
+      JSON.stringify({
+        error: error.message || "Failed to process logo in serverless runtime.",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 };

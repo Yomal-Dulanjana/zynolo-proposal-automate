@@ -144,9 +144,13 @@ export const PUT: APIRoute = async ({ params, locals, request }) => {
     repEmail: proposal.salesUser.email,
   });
 
-  ensureDir(PDF_DIR);
   const pdfFilename = `${proposal.proposalId}.pdf`;
-  fs.writeFileSync(path.join(PDF_DIR, pdfFilename), pdfBuffer);
+  try {
+    ensureDir(PDF_DIR);
+    fs.writeFileSync(path.join(PDF_DIR, pdfFilename), pdfBuffer);
+  } catch (fsErr) {
+    console.warn("[proposals PUT] Serverless read-only filesystem detected, skipping local PDF cache write:", fsErr);
+  }
 
   const finalClientName = (clientName ?? proposal.clientName).trim();
   const finalAddress = clientAddress ?? proposal.clientAddress;
