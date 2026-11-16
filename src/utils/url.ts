@@ -7,36 +7,26 @@
  * - Vercel system environment variables (`VERCEL_PROJECT_PRODUCTION_URL`, `VERCEL_URL`).
  * - Default fallback to local development origin.
  */
-export function getBaseUrl(request?: Request): string {
-  // 1. Client-side browser execution: always use relative root or window.location.origin
-  if (typeof window !== "undefined") {
-    return window.location.origin;
-  }
-
-  // 2. Server-side execution via Request headers (Vercel SSR compatible)
+export function getAppBaseUrl(request?: Request): string {
+  if (typeof window !== "undefined") return window.location.origin;
   if (request) {
     const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
     const forwardedProto = request.headers.get("x-forwarded-proto");
     const isLocal = host?.includes("localhost") || host?.includes("127.0.0.1");
     const proto = (forwardedProto ? forwardedProto.split(",")[0].trim() : "") || (isLocal ? "http" : "https");
-    if (host) {
-      return `${proto}://${host.split(",")[0].trim()}`;
-    }
+    if (host) return `${proto}://${host.split(",")[0].trim()}`;
   }
-
-  // 3. Fallback to Vercel production system variables
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   }
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
   }
-
-  // 4. Default local development fallback
   return "http://localhost:4321";
 }
 
-export const getOrigin = getBaseUrl;
+export const getBaseUrl = getAppBaseUrl;
+export const getOrigin = getAppBaseUrl;
 
 /**
  * Resolves a fully-qualified absolute URL from a given relative or absolute path.

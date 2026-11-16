@@ -7,6 +7,7 @@ export default defineConfig({
   output: "server",
   adapter: vercel({
     webAnalytics: { enabled: true },
+    maxDuration: 25,
   }),
   integrations: [
     react(),
@@ -19,11 +20,11 @@ export default defineConfig({
       allowedHosts: [".ngrok-free.app", ".ngrok.io", ".trycloudflare.com"],
     },
     optimizeDeps: {
-      exclude: ["@prisma/client", "puppeteer"],
+      exclude: ["@prisma/client", "puppeteer-core", "@sparticuz/chromium"],
     },
     build: {
       rollupOptions: {
-        external: ["puppeteer", "bcryptjs", "jsonwebtoken"],
+        external: ["puppeteer-core", "@sparticuz/chromium", "bcryptjs", "jsonwebtoken"],
       },
     },
     ssr: {

@@ -177,38 +177,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return Response.json({ success: false, message: "Sales rep not found." }, { status: 404 });
     }
 
-    // Generate PDF
-    const pdfBuffer = await generateProposalPDF({
-      proposalId,
-      version: "1.0.0",
-      proposalDate,
-      expiryDate,
-      clientName,
-      clientAddress,
-      clientEmail,
-      clientPhone,
-      clientLogoUrl,
-      employeeCount: count,
-      ratePerUser: userRate,
-      baseAmount,
-      vatAmount,
-      vatPercentage: vatPct,
-      totalAmount,
-      repName: salesUser.fullName,
-      repMobile: salesUser.mobileNumber,
-      repEmail: salesUser.email,
-    });
-
-    // Persist PDF (safe on serverless read-only filesystems)
     const pdfFilename = `${proposalId}.pdf`;
     const pdfPath = `/pdfs/${pdfFilename}`;
-    try {
-      ensureDir(PDF_DIR);
-      const pdfAbsPath = path.join(PDF_DIR, pdfFilename);
-      fs.writeFileSync(pdfAbsPath, pdfBuffer);
-    } catch (fsErr) {
-      console.warn("[proposals POST] Serverless read-only filesystem detected, skipping local PDF cache write:", fsErr);
-    }
 
     // Upsert reusable ClientProfile
     try {
@@ -239,6 +209,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     // Save Proposal to database with HOD_PENDING status (Gated review workflow)
+    // Persist to database FIRST to decouple DB insertion from PDF rendering
     const proposal = await prisma.proposal.create({
       data: {
         proposalId,
@@ -269,6 +240,40 @@ export const POST: APIRoute = async ({ request, locals }) => {
         pdfPath,
       },
     });
+
+    // Decoupled PDF pre-rendering: try generating and caching PDF in background, but never fail proposal creation
+    try {
+      const pdfBuffer = await generateProposalPDF({
+        proposalId,
+        version: "1.0.0",
+        proposalDate,
+        expiryDate,
+        clientName,
+        clientAddress,
+        clientEmail,
+        clientPhone,
+        clientLogoUrl,
+        employeeCount: count,
+        ratePerUser: userRate,
+        baseAmount,
+        vatAmount,
+        vatPercentage: vatPct,
+        totalAmount,
+        repName: salesUser.fullName,
+        repMobile: salesUser.mobileNumber,
+        repEmail: salesUser.email,
+      });
+
+      try {
+        ensureDir(PDF_DIR);
+        const pdfAbsPath = path.join(PDF_DIR, pdfFilename);
+        fs.writeFileSync(pdfAbsPath, pdfBuffer);
+      } catch (fsErr) {
+        console.warn("[proposals POST] Serverless read-only filesystem detected, skipping local PDF cache write:", fsErr);
+      }
+    } catch (pdfErr) {
+      console.warn("[proposals POST] PDF pre-render deferred (will be generated on-demand):", pdfErr);
+    }
 
     // DO NOT DISPATCH ANY EMAILS HERE.
     // The proposal is now safely held in HOD_PENDING state awaiting executive review.

@@ -1,5 +1,6 @@
-// src/lib/pdf.ts — Headless Chrome / Puppeteer engine with 16:9 1920x1080 slide background overlay rendering
-import puppeteer from "puppeteer";
+// src/lib/pdf.ts — Serverless-Ready Headless Chrome / Puppeteer engine with 16:9 1920x1080 slide background overlay rendering
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 import fs from "fs";
 import path from "path";
 import { formatAmountOnly, formatOrdinalDateShort, formatOrdinalDateLong } from "./proposals.js";
@@ -7,11 +8,13 @@ import { calculateProposalPricing } from "../utils/pricing.js";
 
 function getSystemChromePath(): string | undefined {
   const candidates = [
+    process.env.CHROME_PATH,
     process.env.PUPPETEER_EXECUTABLE_PATH,
     "/usr/bin/google-chrome-stable",
     "/usr/bin/google-chrome",
     "/usr/bin/chromium-browser",
     "/usr/bin/chromium",
+    "/snap/bin/chromium",
   ];
   for (const candidate of candidates) {
     if (candidate && fs.existsSync(candidate)) {
@@ -19,6 +22,40 @@ function getSystemChromePath(): string | undefined {
     }
   }
   return undefined;
+}
+
+export async function getBrowserInstance() {
+  const isProduction = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+
+  if (isProduction) {
+    chromium.setGraphicsMode = false;
+    return await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    });
+  }
+
+  // Local environment fallback
+  const localChrome =
+    process.env.CHROME_PATH ||
+    getSystemChromePath() ||
+    "/usr/bin/google-chrome" ||
+    "/usr/bin/chromium-browser" ||
+    "/snap/bin/chromium";
+
+  return await puppeteer.launch({
+    executablePath: localChrome,
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--font-render-hinting=none",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+    ],
+  });
 }
 
 // Convert image file on disk to a Base64 data URI
@@ -534,18 +571,7 @@ export function buildProposalSlidesHtml(data: PDFProposalData): string {
 }
 
 export async function generateProposalPdf(htmlContent: string): Promise<Buffer> {
-  const executablePath = getSystemChromePath();
-  const browser = await puppeteer.launch({
-    headless: true,
-    executablePath,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--font-render-hinting=none",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-    ],
-  });
+  const browser = await getBrowserInstance();
 
   try {
     const page = await browser.newPage();
