@@ -44,6 +44,22 @@ export const POST: APIRoute = async ({ request, params, locals }) => {
       return Response.json({ success: false, message: "Proposal not found." }, { status: 404 });
     }
 
+    // TERMINAL STATE LOCK: Prevent follow-ups on rejected proposals
+    const terminalStatuses = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"];
+    const currentStatus = (proposal.status || "").toUpperCase();
+    const currentStage = (proposal.stage || "").toUpperCase();
+
+    if (terminalStatuses.includes(currentStatus) || terminalStatuses.includes(currentStage)) {
+      return Response.json(
+        {
+          success: false,
+          error: "Terminal State Violation: Rejected proposals are permanently locked and cannot receive follow-up emails.",
+          message: "Terminal State Violation: Rejected proposals are permanently locked and cannot receive follow-up emails.",
+        },
+        { status: 403 }
+      );
+    }
+
     // Calculate remaining validity days
     const now = new Date();
     const expiry = new Date(proposal.expiryDate);

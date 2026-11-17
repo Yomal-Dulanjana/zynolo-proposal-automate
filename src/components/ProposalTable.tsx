@@ -755,6 +755,7 @@ export default function ProposalTable({
                   const isExpiringSoon = remDays >= 0 && remDays <= 5 && (p.status === "SENT" || p.status === "VIEWED");
                   const isExpiredDeal = remDays < 0;
                   const cfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.SENT;
+                  const isRejected = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"].includes((p.status || "").toUpperCase());
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/70 transition-colors group">
@@ -802,7 +803,11 @@ export default function ProposalTable({
 
                       {/* Deal Status Column */}
                       <td className="py-3.5 px-4">
-                        {p.status === "HOD_PENDING" || p.status === "CHANGED_PENDING" || p.status === "CHANGES_REQUESTED" ? (
+                        {isRejected ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 cursor-not-allowed select-none">
+                            Rejected / Lost
+                          </span>
+                        ) : p.status === "HOD_PENDING" || p.status === "CHANGED_PENDING" || p.status === "CHANGES_REQUESTED" ? (
                           <div className="inline-flex items-center gap-1.5 flex-wrap">
                             <span className={`border text-[11px] font-bold rounded-full px-2.5 py-1 ${cfg.badgeClass}`}>
                               {cfg.label}
@@ -857,120 +862,146 @@ export default function ProposalTable({
 
                       {/* Action Buttons */}
                       <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          
-                          {/* View HOD Feedback Action (if changes requested or rejected) */}
-                          {(p.status === "CHANGES_REQUESTED" || p.status === "REJECTED") && (
+                        {isRejected ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* View HOD Feedback Action (if rejected with feedback) */}
+                            {p.hodComment && (
+                              <button
+                                type="button"
+                                onClick={() => setViewingFeedback(p)}
+                                title="View Executive HOD Feedback"
+                                className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors border border-amber-200 cursor-pointer"
+                              >
+                                <MessageSquareWarning size={15} />
+                              </button>
+                            )}
+
+                            {/* Download PDF Audit Copy */}
+                            <a
+                              href={`/api/proposals/${p.id}?action=download`}
+                              download={`Proposal_${p.proposalId}.pdf`}
+                              title="Download Final PDF Copy"
+                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors inline-flex items-center justify-center"
+                            >
+                              <Download size={15} />
+                            </a>
+
+                            <span className="text-xs text-slate-400 italic px-1 select-none">Locked</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* View HOD Feedback Action (if changes requested) */}
+                            {p.status === "CHANGES_REQUESTED" && (
+                              <button
+                                type="button"
+                                onClick={() => setViewingFeedback(p)}
+                                title="View Executive HOD Feedback"
+                                className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors border border-amber-200 cursor-pointer"
+                              >
+                                <MessageSquareWarning size={15} />
+                              </button>
+                            )}
+
+                            {/* 1-Click Formal Follow-up Email Action */}
                             <button
                               type="button"
-                              onClick={() => setViewingFeedback(p)}
-                              title="View Executive HOD Feedback"
-                              className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors border border-amber-200 cursor-pointer"
+                              onClick={() => handleSendFollowUp(p)}
+                              disabled={followingUp === p.id || p.status === "HOD_PENDING" || p.status === "CHANGED_PENDING" || p.status === "CHANGES_REQUESTED"}
+                              title={
+                                p.status === "HOD_PENDING" || p.status === "CHANGED_PENDING"
+                                  ? "Follow-up email unavailable: Proposal pending HOD approval"
+                                  : "Send Formal Executive Follow-Up Email via SMTP"
+                              }
+                              className="p-1.5 text-slate-500 hover:text-crimson-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                              <MessageSquareWarning size={15} />
+                              {followingUp === p.id ? (
+                                <Loader2 size={15} className="animate-spin text-crimson-600" />
+                              ) : (
+                                <Send size={15} />
+                              )}
                             </button>
-                          )}
 
-                          {/* 1-Click Formal Follow-up Email Action */}
-                          <button
-                            type="button"
-                            onClick={() => handleSendFollowUp(p)}
-                            disabled={followingUp === p.id || p.status === "HOD_PENDING" || p.status === "CHANGED_PENDING" || p.status === "CHANGES_REQUESTED" || p.status === "REJECTED"}
-                            title={
-                              p.status === "HOD_PENDING" || p.status === "CHANGED_PENDING"
-                                ? "Follow-up email unavailable: Proposal pending HOD approval"
-                                : "Send Formal Executive Follow-Up Email via SMTP"
-                            }
-                            className="p-1.5 text-slate-500 hover:text-crimson-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            {followingUp === p.id ? (
-                              <Loader2 size={15} className="animate-spin text-crimson-600" />
-                            ) : (
-                              <Send size={15} />
+                            {/* WhatsApp Corporate Pitch Action */}
+                            {p.clientPhone && (
+                              <a
+                                href={`https://wa.me/${p.clientPhone.replace(/\D/g, "").replace(/^0/, "94")}?text=${encodeURIComponent(
+                                  `Dear ${p.clientName}, greetings from D TECH Solutions. We have officially dispatched proposal ${p.proposalId} for Zynolo People HRM (${p.employeeCount} Employees, All-Inclusive Flat LKR 400.00/head) to your email. Please let us know when it would be convenient for a quick 15-minute system demonstration.`
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="1-Click WhatsApp Corporate Pitch"
+                                className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                              >
+                                <MessageSquare size={15} />
+                              </a>
                             )}
-                          </button>
 
-                          {/* WhatsApp Corporate Pitch Action */}
-                          {p.clientPhone && (
+                            {/* Clone / Duplicate Action */}
                             <a
-                              href={`https://wa.me/${p.clientPhone.replace(/\D/g, "").replace(/^0/, "94")}?text=${encodeURIComponent(
-                                `Dear ${p.clientName}, greetings from D TECH Solutions. We have officially dispatched proposal ${p.proposalId} for Zynolo People HRM (${p.employeeCount} Employees, All-Inclusive Flat LKR 400.00/head) to your email. Please let us know when it would be convenient for a quick 15-minute system demonstration.`
-                              )}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="1-Click WhatsApp Corporate Pitch"
-                              className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                              href={`/create-proposal?clone=${p.id}`}
+                              title="Clone / Duplicate into New Proposal"
+                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             >
-                              <MessageSquare size={15} />
+                              <Copy size={15} />
                             </a>
-                          )}
 
-                          {/* Clone / Duplicate Action */}
-                          <a
-                            href={`/create-proposal?clone=${p.id}`}
-                            title="Clone / Duplicate into New Proposal"
-                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          >
-                            <Copy size={15} />
-                          </a>
+                            {/* Download PDF Action */}
+                            <a
+                              href={`/api/proposals/${p.id}?action=download`}
+                              download={`Proposal_${p.proposalId}.pdf`}
+                              title="Download PDF Document"
+                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                            >
+                              <Download size={15} />
+                            </a>
 
-                          {/* Download PDF Action */}
-                          <a
-                            href={`/api/proposals/${p.id}?action=download`}
-                            download={`Proposal_${p.proposalId}.pdf`}
-                            title="Download PDF Document"
-                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                          >
-                            <Download size={15} />
-                          </a>
+                            {/* Re-send Initial Email Action (Gatekept: only for approved/sent proposals) */}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setResendingId(p.id);
+                                await onResend(p.id);
+                                setResendingId(null);
+                              }}
+                              disabled={resendingId === p.id || p.status === "HOD_PENDING" || p.status === "CHANGED_PENDING" || p.status === "CHANGES_REQUESTED"}
+                              title={
+                                p.status === "HOD_PENDING" || p.status === "CHANGED_PENDING"
+                                  ? "Email dispatch disabled until approved by HOD"
+                                  : "Re-dispatch Original Proposal Email"
+                              }
+                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {resendingId === p.id ? (
+                                <Loader2 size={15} className="animate-spin" />
+                              ) : (
+                                <Mail size={15} />
+                              )}
+                            </button>
 
-                          {/* Re-send Initial Email Action (Gatekept: only for approved/sent proposals) */}
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              setResendingId(p.id);
-                              await onResend(p.id);
-                              setResendingId(null);
-                            }}
-                            disabled={resendingId === p.id || p.status === "HOD_PENDING" || p.status === "CHANGED_PENDING" || p.status === "CHANGES_REQUESTED" || p.status === "REJECTED"}
-                            title={
-                              p.status === "HOD_PENDING" || p.status === "CHANGED_PENDING"
-                                ? "Email dispatch disabled until approved by HOD"
-                                : "Re-dispatch Original Proposal Email"
-                            }
-                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            {resendingId === p.id ? (
-                              <Loader2 size={15} className="animate-spin" />
-                            ) : (
-                              <Mail size={15} />
-                            )}
-                          </button>
+                            {/* Edit Action */}
+                            <a
+                              href={`/proposals/${p.id}/edit`}
+                              title={p.status === "CHANGES_REQUESTED" ? "Edit & Resubmit Proposal with Feedback" : "Edit Proposal Details"}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                p.status === "CHANGES_REQUESTED"
+                                  ? "text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200"
+                                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                              }`}
+                            >
+                              <Pencil size={15} />
+                            </a>
 
-                          {/* Edit Action */}
-                          <a
-                            href={`/proposals/${p.id}/edit`}
-                            title={p.status === "CHANGES_REQUESTED" ? "Edit & Resubmit Proposal with Feedback" : "Edit Proposal Details"}
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              p.status === "CHANGES_REQUESTED"
-                                ? "text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200"
-                                : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-                            }`}
-                          >
-                            <Pencil size={15} />
-                          </a>
-
-                          {/* Delete Action */}
-                          <button
-                            type="button"
-                            onClick={() => setConfirmDelete(p)}
-                            title="Delete Proposal"
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-
-                        </div>
+                            {/* Delete Action */}
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDelete(p)}
+                              title="Delete Proposal"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        )}
                       </td>
 
                     </tr>

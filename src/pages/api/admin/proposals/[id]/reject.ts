@@ -42,6 +42,22 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       );
     }
 
+    // TERMINAL STATE LOCK: Already rejected
+    const terminalStatuses = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"];
+    const currentStatus = (proposal.status || "").toUpperCase();
+    const currentStage = (proposal.stage || "").toUpperCase();
+
+    if (terminalStatuses.includes(currentStatus) || terminalStatuses.includes(currentStage)) {
+      return Response.json(
+        {
+          success: false,
+          error: "Terminal State Violation: Proposal is already rejected and locked.",
+          message: "Terminal State Violation: Proposal is already rejected and locked.",
+        },
+        { status: 400 }
+      );
+    }
+
     const updated = await prisma.proposal.update({
       where: { id },
       data: {

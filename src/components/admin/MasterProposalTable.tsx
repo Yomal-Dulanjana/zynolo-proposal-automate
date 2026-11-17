@@ -450,6 +450,9 @@ export default function MasterProposalTable({
               </tr>
             ) : (
               filteredProposals.map((p) => {
+                const isRejected = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"].includes(
+                  (p.status || "").toUpperCase()
+                );
                 const statusCfg = STATUS_BADGES[p.status] || {
                   label: p.status,
                   badgeClass: "bg-slate-100 text-slate-600 border-slate-200",
@@ -514,11 +517,17 @@ export default function MasterProposalTable({
 
                     {/* Deal Status (Single-Line) */}
                     <td className="px-3 py-4 align-middle whitespace-nowrap text-center">
-                      <span
-                        className={`whitespace-nowrap inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold border ${statusCfg.badgeClass}`}
-                      >
-                        {statusCfg.label}
-                      </span>
+                      {isRejected ? (
+                        <span className="whitespace-nowrap inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 cursor-not-allowed select-none">
+                          Rejected / Lost
+                        </span>
+                      ) : (
+                        <span
+                          className={`whitespace-nowrap inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold border ${statusCfg.badgeClass}`}
+                        >
+                          {statusCfg.label}
+                        </span>
+                      )}
                     </td>
 
                     {/* Issued Date */}
@@ -531,93 +540,143 @@ export default function MasterProposalTable({
                       {fmtDate(p.expiryDate)}
                     </td>
 
-                    {/* Actions: WhatsApp + Clone + Download PDF */}
+                    {/* Actions */}
                     <td className="px-4 py-4 align-middle whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {/* WhatsApp Action */}
-                        {p.clientPhone && (
+                      {isRejected ? (
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Download PDF */}
                           <div className="relative group inline-block">
                             <a
-                              href={`https://wa.me/${p.clientPhone.replace(/\D/g, "").replace(/^0/, "94")}?text=${encodeURIComponent(
-                                `Dear ${p.clientName}, greetings from D TECH Solutions. We have officially dispatched proposal ${p.proposalId} for Zynolo People HRM (${p.employeeCount} Employees, All-Inclusive Flat LKR 400.00/head) to your email. Please let us know when it would be convenient for a quick 15-minute system demonstration.`
-                              )}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 text-emerald-600 hover:text-white hover:bg-emerald-600 rounded-lg transition-colors inline-flex items-center justify-center border border-emerald-200 bg-emerald-50"
-                              aria-label="WhatsApp Corporate Pitch"
+                              href={`/api/proposals/${p.id}/pdf`}
+                              download={`Zynolo-Proposal-${p.proposalId}.pdf`}
+                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors inline-flex items-center justify-center border border-transparent hover:border-slate-200"
+                              aria-label="Download Proposal PDF"
                             >
-                              <MessageSquare size={15} />
+                              <Download size={15} />
                             </a>
                             <div className="absolute bottom-full mb-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-30 whitespace-nowrap">
                               <div className="bg-slate-800 text-white text-[11px] font-medium py-1 px-2.5 rounded-md shadow-lg relative">
-                                1-Click WhatsApp Pitch
+                                Download Proposal PDF
                                 <span className="absolute top-full right-3 border-4 border-transparent border-t-slate-800" />
                               </div>
                             </div>
                           </div>
-                        )}
 
-                        {/* Clone / Duplicate Proposal */}
-                        <div className="relative group inline-block">
-                          <a
-                            href={`/create-proposal?clone=${p.id}`}
-                            className="p-1.5 text-blue-600 hover:text-white hover:bg-blue-600 rounded-lg transition-colors inline-flex items-center justify-center border border-blue-200 bg-blue-50"
-                            aria-label="Clone Proposal"
-                          >
-                            <Copy size={15} />
-                          </a>
-                          <div className="absolute bottom-full mb-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-30 whitespace-nowrap">
-                            <div className="bg-slate-800 text-white text-[11px] font-medium py-1 px-2.5 rounded-md shadow-lg relative">
-                              Clone Proposal ("Duplicate as New")
-                              <span className="absolute top-full right-3 border-4 border-transparent border-t-slate-800" />
+                          <span className="text-xs text-slate-400 italic px-1 select-none">Locked</span>
+
+                          {/* Delete Proposal (Executive) */}
+                          <div className="relative group inline-block">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedProposalForDeletion({
+                                  id: p.id,
+                                  proposalId: p.proposalId,
+                                  clientName: p.clientName,
+                                  totalAmount: p.totalAmount,
+                                })
+                              }
+                              className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-md transition-colors cursor-pointer border border-transparent hover:border-rose-200"
+                              aria-label="Delete Proposal"
+                              title="Delete Proposal (Executive)"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                            <div className="absolute bottom-full mb-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-30 whitespace-nowrap">
+                              <div className="bg-slate-800 text-white text-[11px] font-medium py-1 px-2.5 rounded-md shadow-lg relative">
+                                Delete Proposal (Executive)
+                                <span className="absolute top-full right-3 border-4 border-transparent border-t-slate-800" />
+                              </div>
                             </div>
                           </div>
                         </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* WhatsApp Action */}
+                          {p.clientPhone && (
+                            <div className="relative group inline-block">
+                              <a
+                                href={`https://wa.me/${p.clientPhone.replace(/\D/g, "").replace(/^0/, "94")}?text=${encodeURIComponent(
+                                  `Dear ${p.clientName}, greetings from D TECH Solutions. We have officially dispatched proposal ${p.proposalId} for Zynolo People HRM (${p.employeeCount} Employees, All-Inclusive Flat LKR 400.00/head) to your email. Please let us know when it would be convenient for a quick 15-minute system demonstration.`
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 text-emerald-600 hover:text-white hover:bg-emerald-600 rounded-lg transition-colors inline-flex items-center justify-center border border-emerald-200 bg-emerald-50"
+                                aria-label="WhatsApp Corporate Pitch"
+                              >
+                                <MessageSquare size={15} />
+                              </a>
+                              <div className="absolute bottom-full mb-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-30 whitespace-nowrap">
+                                <div className="bg-slate-800 text-white text-[11px] font-medium py-1 px-2.5 rounded-md shadow-lg relative">
+                                  1-Click WhatsApp Pitch
+                                  <span className="absolute top-full right-3 border-4 border-transparent border-t-slate-800" />
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
-                        {/* Download PDF */}
-                        <div className="relative group inline-block">
-                          <a
-                            href={`/api/proposals/${p.id}/pdf`}
-                            download={`Zynolo-Proposal-${p.proposalId}.pdf`}
-                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors inline-flex items-center justify-center border border-transparent hover:border-slate-200"
-                            aria-label="Download Proposal PDF"
-                          >
-                            <Download size={15} />
-                          </a>
-                          <div className="absolute bottom-full mb-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-30 whitespace-nowrap">
-                            <div className="bg-slate-800 text-white text-[11px] font-medium py-1 px-2.5 rounded-md shadow-lg relative">
-                              Download Proposal PDF
-                              <span className="absolute top-full right-3 border-4 border-transparent border-t-slate-800" />
+                          {/* Clone / Duplicate Proposal */}
+                          <div className="relative group inline-block">
+                            <a
+                              href={`/create-proposal?clone=${p.id}`}
+                              className="p-1.5 text-blue-600 hover:text-white hover:bg-blue-600 rounded-lg transition-colors inline-flex items-center justify-center border border-blue-200 bg-blue-50"
+                              aria-label="Clone Proposal"
+                            >
+                              <Copy size={15} />
+                            </a>
+                            <div className="absolute bottom-full mb-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-30 whitespace-nowrap">
+                              <div className="bg-slate-800 text-white text-[11px] font-medium py-1 px-2.5 rounded-md shadow-lg relative">
+                                Clone Proposal ("Duplicate as New")
+                                <span className="absolute top-full right-3 border-4 border-transparent border-t-slate-800" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Download PDF */}
+                          <div className="relative group inline-block">
+                            <a
+                              href={`/api/proposals/${p.id}/pdf`}
+                              download={`Zynolo-Proposal-${p.proposalId}.pdf`}
+                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors inline-flex items-center justify-center border border-transparent hover:border-slate-200"
+                              aria-label="Download Proposal PDF"
+                            >
+                              <Download size={15} />
+                            </a>
+                            <div className="absolute bottom-full mb-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-30 whitespace-nowrap">
+                              <div className="bg-slate-800 text-white text-[11px] font-medium py-1 px-2.5 rounded-md shadow-lg relative">
+                                Download Proposal PDF
+                                <span className="absolute top-full right-3 border-4 border-transparent border-t-slate-800" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Delete Proposal (Executive) */}
+                          <div className="relative group inline-block">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedProposalForDeletion({
+                                  id: p.id,
+                                  proposalId: p.proposalId,
+                                  clientName: p.clientName,
+                                  totalAmount: p.totalAmount,
+                                })
+                              }
+                              className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-md transition-colors cursor-pointer border border-transparent hover:border-rose-200"
+                              aria-label="Delete Proposal"
+                              title="Delete Proposal (Executive)"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                            <div className="absolute bottom-full mb-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-30 whitespace-nowrap">
+                              <div className="bg-slate-800 text-white text-[11px] font-medium py-1 px-2.5 rounded-md shadow-lg relative">
+                                Delete Proposal (Executive)
+                                <span className="absolute top-full right-3 border-4 border-transparent border-t-slate-800" />
+                              </div>
                             </div>
                           </div>
                         </div>
-
-                        {/* Delete Proposal (Executive) */}
-                        <div className="relative group inline-block">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSelectedProposalForDeletion({
-                                id: p.id,
-                                proposalId: p.proposalId,
-                                clientName: p.clientName,
-                                totalAmount: p.totalAmount,
-                              })
-                            }
-                            className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-md transition-colors cursor-pointer border border-transparent hover:border-rose-200"
-                            aria-label="Delete Proposal"
-                            title="Delete Proposal (Executive)"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                          <div className="absolute bottom-full mb-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-30 whitespace-nowrap">
-                            <div className="bg-slate-800 text-white text-[11px] font-medium py-1 px-2.5 rounded-md shadow-lg relative">
-                              Delete Proposal (Executive)
-                              <span className="absolute top-full right-3 border-4 border-transparent border-t-slate-800" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      )}
                     </td>
                   </tr>
                 );

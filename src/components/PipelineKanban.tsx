@@ -256,8 +256,17 @@ export default function PipelineKanban({
     const deal = proposals.find((p) => p.id === proposalId);
     if (!deal) return;
 
-    // Rep gatekeeping check: cannot move unapproved proposal into DISPATCHED, NEGOTIATION, WON
+    // Terminal State Lock: Rejected proposals are permanently locked
+    const terminalStatuses = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"];
+    const currentStatus = (deal.status || "").toUpperCase();
     const currentStage = normalizePipelineStage(deal);
+
+    if (terminalStatuses.includes(currentStatus) || currentStage === "CLOSED_LOST" || currentStage === "DROPPED_LOST") {
+      showToast("error", "Terminal State Violation: Rejected proposals are permanently locked and cannot be moved.");
+      return;
+    }
+
+    // Rep gatekeeping check: cannot move unapproved proposal into DISPATCHED, NEGOTIATION, WON
     if (!isAdmin && currentStage === "HOD_REVIEW" && targetStage !== "DROPPED_LOST" && targetStage !== "CLOSED_LOST") {
       showToast(
         "error",

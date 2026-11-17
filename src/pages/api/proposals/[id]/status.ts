@@ -36,10 +36,13 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
     return Response.json({ success: false, message: "Unauthorized." }, { status: 401 });
   }
 
-  const id = Number(params.id);
-  if (!id || isNaN(id)) {
+  const rawId = params.id;
+  if (!rawId) {
     return Response.json({ success: false, message: "Invalid proposal ID." }, { status: 400 });
   }
+
+  const numId = Number(rawId);
+  const isNumeric = !isNaN(numId) && numId > 0;
 
   try {
     const body = await request.json();
@@ -57,7 +60,13 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
     }
 
     const isHodAdmin = !!(adminUser && adminUser.role === "HOD_ADMIN");
-    const where = isHodAdmin ? { id } : { id, salesUserId: user!.userId };
+    const where = isHodAdmin
+      ? isNumeric
+        ? { OR: [{ id: numId }, { proposalId: rawId }] }
+        : { proposalId: rawId }
+      : isNumeric
+      ? { OR: [{ id: numId, salesUserId: user!.userId }, { proposalId: rawId, salesUserId: user!.userId }] }
+      : { proposalId: rawId, salesUserId: user!.userId };
 
     const proposal = await prisma.proposal.findFirst({
       where,
@@ -75,6 +84,22 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
 
     if (!proposal) {
       return Response.json({ success: false, message: "Proposal not found or access denied." }, { status: 404 });
+    }
+
+    // TERMINAL STATE LOCK: Reject transition if already in terminal state
+    const terminalStatuses = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"];
+    const currentStatus = (proposal.status || "").toUpperCase();
+    const currentStage = (proposal.stage || "").toUpperCase();
+
+    if (terminalStatuses.includes(currentStatus) || terminalStatuses.includes(currentStage)) {
+      return Response.json(
+        {
+          success: false,
+          error: "Terminal State Violation: Rejected proposals are permanently locked and cannot be modified.",
+          message: "Terminal State Violation: Rejected proposals are permanently locked and cannot be modified.",
+        },
+        { status: 403 }
+      );
     }
 
     const isCurrentlyInReview = [
@@ -141,7 +166,7 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
     }
 
     const updated = await prisma.proposal.update({
-      where: { id },
+      where: { id: proposal.id },
       data: updateData,
       select: {
         id: true,

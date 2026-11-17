@@ -28,6 +28,22 @@ export const POST: APIRoute = async ({ request, params, locals }) => {
       return Response.json({ success: false, message: "Proposal not found." }, { status: 404 });
     }
 
+    // TERMINAL STATE LOCK: Prevent resending rejected proposals
+    const terminalStatuses = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"];
+    const currentStatus = (proposal.status || "").toUpperCase();
+    const currentStage = (proposal.stage || "").toUpperCase();
+
+    if (terminalStatuses.includes(currentStatus) || terminalStatuses.includes(currentStage)) {
+      return Response.json(
+        {
+          success: false,
+          error: "Terminal State Violation: Rejected proposals are permanently locked and cannot be re-dispatched.",
+          message: "Terminal State Violation: Rejected proposals are permanently locked and cannot be re-dispatched.",
+        },
+        { status: 403 }
+      );
+    }
+
     let pdfBuffer: Buffer;
     const absPath = proposal.pdfPath ? path.join("./public", proposal.pdfPath) : null;
     if (absPath && fs.existsSync(absPath)) {

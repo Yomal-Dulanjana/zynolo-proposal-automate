@@ -42,6 +42,22 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       );
     }
 
+    // TERMINAL STATE LOCK: Cannot request changes on already rejected proposals
+    const terminalStatuses = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"];
+    const currentStatus = (proposal.status || "").toUpperCase();
+    const currentStage = (proposal.stage || "").toUpperCase();
+
+    if (terminalStatuses.includes(currentStatus) || terminalStatuses.includes(currentStage)) {
+      return Response.json(
+        {
+          success: false,
+          error: "Terminal State Violation: Rejected proposals are permanently locked and cannot be modified.",
+          message: "Terminal State Violation: Rejected proposals are permanently locked and cannot be modified.",
+        },
+        { status: 403 }
+      );
+    }
+
     const updated = await prisma.proposal.update({
       where: { id },
       data: {

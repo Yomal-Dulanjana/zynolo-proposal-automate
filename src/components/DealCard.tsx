@@ -243,7 +243,11 @@ export default function DealCard({
     }
   };
 
+  const isTerminalLost =
+    currentStage === "CLOSED_LOST" || currentStage === "DROPPED_LOST" || deal.status === "REJECTED";
+
   const handleStageSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (isTerminalLost) return;
     const target = e.target.value as any;
     if ((target === "DROPPED_LOST" || target === "CLOSED_LOST") && onOpenLossModal) {
       onOpenLossModal(deal);
@@ -253,7 +257,7 @@ export default function DealCard({
   };
 
   const handleDragStart = (e: React.DragEvent) => {
-    if (!isAdmin && isPendingHodApproval && currentStage === "HOD_REVIEW") {
+    if (isTerminalLost || (!isAdmin && isPendingHodApproval && currentStage === "HOD_REVIEW")) {
       e.preventDefault();
       return;
     }
@@ -263,10 +267,12 @@ export default function DealCard({
 
   return (
     <div
-      draggable={!isUpdating && (isAdmin || !isPendingHodApproval)}
+      draggable={!isUpdating && !isTerminalLost && (isAdmin || !isPendingHodApproval)}
       onDragStart={handleDragStart}
       className={`group w-full bg-white border border-slate-200/90 rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all ${
-        !isAdmin && isPendingHodApproval && currentStage === "HOD_REVIEW" ? "cursor-default" : "cursor-grab active:cursor-grabbing"
+        isTerminalLost || (!isAdmin && isPendingHodApproval && currentStage === "HOD_REVIEW")
+          ? "cursor-default"
+          : "cursor-grab active:cursor-grabbing"
       } relative select-none ${
         accentClasses[currentStage] || "border-l-4 border-l-slate-400"
       } ${isUpdating ? "opacity-50 pointer-events-none" : ""}`}
@@ -498,7 +504,11 @@ export default function DealCard({
       {/* ── CARD FOOTER ACTIONS ────────────────────────────────────────── */}
       <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
         {/* Stage Transition Selector */}
-        {!isAdmin && isPendingHodApproval && currentStage === "PROPOSAL_SENT" ? (
+        {isTerminalLost ? (
+          <div className="flex-1 py-1 px-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-[11px] font-semibold text-center truncate cursor-not-allowed select-none">
+            Rejected / Lost (Locked)
+          </div>
+        ) : !isAdmin && isPendingHodApproval && currentStage === "PROPOSAL_SENT" ? (
           <div className="flex-1 py-1 px-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-[11px] font-semibold text-center truncate">
             HOD Approval Pending
           </div>

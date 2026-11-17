@@ -44,6 +44,21 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       );
     }
 
+    // TERMINAL STATE LOCK: Reject approval if already rejected/lost
+    const terminalStatuses = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"];
+    const currentStatus = (proposal.status || "").toUpperCase();
+    const currentStage = (proposal.stage || "").toUpperCase();
+
+    if (terminalStatuses.includes(currentStatus) || terminalStatuses.includes(currentStage)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Terminal State Violation: Rejected proposals are permanently locked and cannot be modified.",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     // 2. Perform Database State Transition First (Atomic)
     const updatedProposal = await prisma.proposal.update({
       where: { id: proposal.id },
