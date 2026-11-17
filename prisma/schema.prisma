@@ -108,6 +108,9 @@ model Proposal {
   reviewedBy        String?            @db.VarChar(255)
   lossReason        String?            @db.VarChar(100)
   lossNotes         String?            @db.Text
+  rejectionComment  String?            @db.Text
+  rejectedAt        DateTime?
+  rejectedByRole    String?            @db.VarChar(50)
   lastContactedAt   DateTime?          @default(now())
   cogsEstimated     Decimal?           @default(80.00) @db.Decimal(10, 2)
   cogsRateWithVat   Float?             @default(80.00)

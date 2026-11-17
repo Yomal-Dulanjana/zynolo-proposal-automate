@@ -53,6 +53,11 @@ const proposals: AdminProposalItem[] = rawProposals.map((p) => ({
   hodComment: p.hodComment,
   reviewedAt: p.reviewedAt ? new Date(p.reviewedAt).toISOString() : null,
   reviewedBy: p.reviewedBy,
+  lossReason: p.lossReason,
+  lossNotes: p.lossNotes,
+  rejectionComment: p.rejectionComment,
+  rejectedAt: p.rejectedAt ? new Date(p.rejectedAt).toISOString() : null,
+  rejectedByRole: p.rejectedByRole,
 }));
 
 const reps: RepPerformanceMetric[] = salesUsers.map((rep) => {

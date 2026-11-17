@@ -44,6 +44,21 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
       return Response.json({ success: false, message: "Proposal not found." }, { status: 404 });
     }
 
+    // PDF DOWNLOAD LOCK: Rejected proposals cannot be downloaded or exported
+    const isRejected = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"].includes(
+      (proposal.status || proposal.stage || "").toUpperCase()
+    );
+    if (isRejected) {
+      return Response.json(
+        {
+          success: false,
+          error: "Access Denied: Rejected proposals cannot be downloaded or exported.",
+          message: "Access Denied: Rejected proposals cannot be downloaded or exported.",
+        },
+        { status: 403 }
+      );
+    }
+
     let pdfBuffer: Buffer;
     const possiblePaths = [
       proposal.pdfPath ? path.resolve(process.cwd(), "public", proposal.pdfPath.replace(/^\/+/, "")) : null,

@@ -135,6 +135,9 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
       salesUserId?: number;
       lossReason?: string | null;
       lossNotes?: string | null;
+      rejectionComment?: string | null;
+      rejectedAt?: Date | null;
+      rejectedByRole?: string | null;
       lastContactedAt?: Date;
     } = {
       stage: stageConfig.stage,
@@ -147,11 +150,30 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
       updateData.isHodApproved = true;
     }
 
-    if (body.lossReason) {
-      updateData.lossReason = String(body.lossReason).trim();
-    }
-    if (body.lossNotes !== undefined) {
-      updateData.lossNotes = body.lossNotes ? String(body.lossNotes).trim() : null;
+    const isRejecting =
+      stageConfig.stage === DealStage.CLOSED_LOST ||
+      stageConfig.status === ProposalStatus.REJECTED;
+
+    if (isRejecting) {
+      const reason = (body.lossReason || body.primaryReason || "").trim();
+      const comment = (body.rejectionComment || body.lossNotes || "").trim();
+
+      updateData.lossReason = reason || "Unspecified Corporate Reason";
+      updateData.lossNotes = comment || null;
+      updateData.rejectionComment = comment || null;
+      updateData.rejectedAt = new Date();
+      updateData.rejectedByRole = isHodAdmin
+        ? "Executive HOD"
+        : user?.fullName
+        ? `Sales Representative: ${user.fullName}`
+        : "Sales Representative";
+    } else {
+      if (body.lossReason) {
+        updateData.lossReason = String(body.lossReason).trim();
+      }
+      if (body.lossNotes !== undefined) {
+        updateData.lossNotes = body.lossNotes ? String(body.lossNotes).trim() : null;
+      }
     }
 
     // Executive re-assignment support
@@ -181,6 +203,9 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
         baseAmount: true,
         lossReason: true,
         lossNotes: true,
+        rejectionComment: true,
+        rejectedAt: true,
+        rejectedByRole: true,
         lastContactedAt: true,
         salesUser: {
           select: {

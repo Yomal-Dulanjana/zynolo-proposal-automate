@@ -60,6 +60,9 @@ export const GET: APIRoute = async ({ locals }) => {
         lastContactedAt: true,
         lossReason: true,
         lossNotes: true,
+        rejectionComment: true,
+        rejectedAt: true,
+        rejectedByRole: true,
         cogsEstimated: true,
         salesUserId: true,
         salesUser: {

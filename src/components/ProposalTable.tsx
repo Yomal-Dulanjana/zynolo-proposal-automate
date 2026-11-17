@@ -11,6 +11,8 @@ import {
   ACTIVE_PIPELINE_STATUSES,
   TERMINAL_WON_STATUSES,
 } from "../utils/financialAnalytics";
+import { RejectProposalModal } from "./modals/RejectProposalModal";
+import { ViewRejectionReasonModal } from "./modals/ViewRejectionReasonModal";
 
 export type ProposalStatus =
   | "DRAFT"
@@ -43,6 +45,11 @@ export interface Proposal {
   hodComment?: string | null;
   reviewedAt?: string | null;
   reviewedBy?: string | null;
+  lossReason?: string | null;
+  lossNotes?: string | null;
+  rejectionComment?: string | null;
+  rejectedAt?: string | null;
+  rejectedByRole?: string | null;
   createdAt: string;
 }
 
@@ -168,6 +175,8 @@ export default function ProposalTable({
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [resendingId, setResendingId] = useState<number | null>(null);
   const [viewingFeedback, setViewingFeedback] = useState<Proposal | null>(null);
+  const [rejectingProposal, setRejectingProposal] = useState<Proposal | null>(null);
+  const [viewingRejectionModal, setViewingRejectionModal] = useState<Proposal | null>(null);
 
   // Extract distinct companies from proposals
   const companies = useMemo(() => {
@@ -345,13 +354,31 @@ export default function ProposalTable({
   }, [filteredProposals]);
 
   // Status Change (PATCH /api/proposals/[id]/status)
-  const handleStatusChange = async (proposalId: number, newStatus: ProposalStatus) => {
+  const handleStatusChange = async (
+    proposalId: number,
+    newStatus: ProposalStatus,
+    lossReason?: string,
+    rejectionComment?: string
+  ) => {
+    // Intercept transition to REJECTED if reason not yet provided
+    if (newStatus === "REJECTED" && !lossReason) {
+      const target = proposals.find(p => p.id === proposalId);
+      if (target) {
+        setRejectingProposal(target);
+        return;
+      }
+    }
+
     setUpdatingStatus(proposalId);
     try {
       const res = await fetch(`/api/proposals/${proposalId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({
+          status: newStatus,
+          lossReason,
+          rejectionComment,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -365,6 +392,12 @@ export default function ProposalTable({
     } finally {
       setUpdatingStatus(null);
     }
+  };
+
+  const handleConfirmRejection = async (data: { lossReason: string; rejectionComment: string }) => {
+    if (!rejectingProposal) return;
+    await handleStatusChange(rejectingProposal.id, "REJECTED", data.lossReason, data.rejectionComment);
+    setRejectingProposal(null);
   };
 
   // 1-Click Formal Follow-Up Email (POST /api/proposals/[id]/follow-up)
@@ -863,29 +896,16 @@ export default function ProposalTable({
                       {/* Action Buttons */}
                       <td className="py-3.5 px-4 text-right">
                         {isRejected ? (
-                          <div className="flex items-center justify-end gap-1.5">
-                            {/* View HOD Feedback Action (if rejected with feedback) */}
-                            {p.hodComment && (
-                              <button
-                                type="button"
-                                onClick={() => setViewingFeedback(p)}
-                                title="View Executive HOD Feedback"
-                                className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors border border-amber-200 cursor-pointer"
-                              >
-                                <MessageSquareWarning size={15} />
-                              </button>
-                            )}
-
-                            {/* Download PDF Audit Copy */}
-                            <a
-                              href={`/api/proposals/${p.id}?action=download`}
-                              download={`Proposal_${p.proposalId}.pdf`}
-                              title="Download Final PDF Copy"
-                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors inline-flex items-center justify-center"
+                          <div className="flex items-center justify-end space-x-2">
+                            {/* Sole Permitted Action: View Rejection Comment & Audit Log */}
+                            <button
+                              type="button"
+                              onClick={() => setViewingRejectionModal(p)}
+                              title="View Rejection Comment & Audit Log"
+                              className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition border border-amber-200 cursor-pointer"
                             >
-                              <Download size={15} />
-                            </a>
-
+                              <MessageSquare size={15} />
+                            </button>
                             <span className="text-xs text-slate-400 italic px-1 select-none">Locked</span>
                           </div>
                         ) : (
@@ -1149,6 +1169,26 @@ export default function ProposalTable({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Universal Rejection Feedback Modal for Sales Rep */}
+      {rejectingProposal && (
+        <RejectProposalModal
+          isOpen={!!rejectingProposal}
+          proposalId={rejectingProposal.proposalId}
+          clientName={rejectingProposal.clientName}
+          onClose={() => setRejectingProposal(null)}
+          onSubmit={handleConfirmRejection}
+        />
+      )}
+
+      {/* Read-Only Rejection Reason & Audit Log Modal */}
+      {viewingRejectionModal && (
+        <ViewRejectionReasonModal
+          isOpen={!!viewingRejectionModal}
+          proposal={viewingRejectionModal}
+          onClose={() => setViewingRejectionModal(null)}
+        />
       )}
 
     </div>

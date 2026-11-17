@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type { AdminProposalItem, RepPerformanceMetric } from "./types";
 import DeleteProposalModal, { type ProposalForDeletion } from "./DeleteProposalModal";
+import { ViewRejectionReasonModal } from "../modals/ViewRejectionReasonModal";
 import {
   ACTIVE_PIPELINE_STATUSES,
   TERMINAL_WON_STATUSES,
@@ -59,6 +60,7 @@ export default function MasterProposalTable({
   // Deletion state
   const [selectedProposalForDeletion, setSelectedProposalForDeletion] =
     useState<ProposalForDeletion | null>(null);
+  const [viewingRejectionModal, setViewingRejectionModal] = useState<AdminProposalItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -544,19 +546,20 @@ export default function MasterProposalTable({
                     <td className="px-4 py-4 align-middle whitespace-nowrap text-right">
                       {isRejected ? (
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Download PDF */}
+                          {/* View Rejection Comment & Audit Log */}
                           <div className="relative group inline-block">
-                            <a
-                              href={`/api/proposals/${p.id}/pdf`}
-                              download={`Zynolo-Proposal-${p.proposalId}.pdf`}
-                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors inline-flex items-center justify-center border border-transparent hover:border-slate-200"
-                              aria-label="Download Proposal PDF"
+                            <button
+                              type="button"
+                              onClick={() => setViewingRejectionModal(p)}
+                              className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors inline-flex items-center justify-center border border-amber-200 cursor-pointer"
+                              aria-label="View Rejection Comment"
+                              title="View Rejection Reason & Feedback"
                             >
-                              <Download size={15} />
-                            </a>
+                              <MessageSquare size={15} />
+                            </button>
                             <div className="absolute bottom-full mb-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-30 whitespace-nowrap">
                               <div className="bg-slate-800 text-white text-[11px] font-medium py-1 px-2.5 rounded-md shadow-lg relative">
-                                Download Proposal PDF
+                                View Rejection Feedback
                                 <span className="absolute top-full right-3 border-4 border-transparent border-t-slate-800" />
                               </div>
                             </div>
@@ -694,6 +697,15 @@ export default function MasterProposalTable({
         onConfirm={handleDeleteProposal}
         isDeleting={isDeleting}
       />
+
+      {/* Read-Only Rejection Reason & Audit Log Modal */}
+      {viewingRejectionModal && (
+        <ViewRejectionReasonModal
+          isOpen={!!viewingRejectionModal}
+          proposal={viewingRejectionModal}
+          onClose={() => setViewingRejectionModal(null)}
+        />
+      )}
 
       {/* Floating Toast Notification */}
       {toast && (

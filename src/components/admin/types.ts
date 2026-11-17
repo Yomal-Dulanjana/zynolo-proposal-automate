@@ -40,6 +40,9 @@ export interface AdminProposalItem {
   grossMarginPct?: number | null;
   lossReason?: string | null;
   lossNotes?: string | null;
+  rejectionComment?: string | null;
+  rejectedAt?: string | null;
+  rejectedByRole?: string | null;
   lastContactedAt?: string | null;
 }
 

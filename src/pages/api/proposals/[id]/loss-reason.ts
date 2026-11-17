@@ -39,6 +39,20 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
       return Response.json({ success: false, message: "Proposal not found or access denied." }, { status: 404 });
     }
 
+    // Terminal State Violation: Rejected proposals are permanently locked
+    const terminalStatuses = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"];
+    const currentStatus = (proposal.status || "").toUpperCase();
+    if (terminalStatuses.includes(currentStatus)) {
+      return Response.json(
+        {
+          success: false,
+          error: "Terminal State Violation",
+          message: "Rejected proposals are permanently locked in terminal state and cannot be modified.",
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { lossReason, lossNotes, status } = body;
 
@@ -48,11 +62,21 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
 
     const targetStatus = status ? (status.toUpperCase() === "REJECTED" ? ProposalStatus.REJECTED : ProposalStatus.REJECTED) : ProposalStatus.REJECTED;
 
+    const rejectionComment = lossNotes ? String(lossNotes).trim() : String(lossReason).trim();
+    const rejectedByRole = isHodAdmin
+      ? "Executive HOD"
+      : user?.fullName
+      ? `Sales Representative: ${user.fullName}`
+      : "Sales Representative";
+
     const updated = await prisma.proposal.update({
       where: { id: proposal.id },
       data: {
         lossReason: String(lossReason).trim(),
         lossNotes: lossNotes ? String(lossNotes).trim() : null,
+        rejectionComment,
+        rejectedAt: new Date(),
+        rejectedByRole,
         status: targetStatus,
       },
       select: {
@@ -61,6 +85,9 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
         status: true,
         lossReason: true,
         lossNotes: true,
+        rejectionComment: true,
+        rejectedAt: true,
+        rejectedByRole: true,
         updatedAt: true,
       },
     });
