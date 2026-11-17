@@ -43,6 +43,8 @@ export interface AdminProposalItem {
   rejectionComment?: string | null;
   rejectedAt?: string | null;
   rejectedByRole?: string | null;
+  rejectedByName?: string | null;
+  updatedAt?: string | null;
   lastContactedAt?: string | null;
 }
 

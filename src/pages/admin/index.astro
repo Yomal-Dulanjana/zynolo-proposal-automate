@@ -95,6 +95,8 @@ const proposals: AdminProposalItem[] = rawProposals.map((p) => {
     rejectionComment: p.rejectionComment,
     rejectedAt: p.rejectedAt ? new Date(p.rejectedAt).toISOString() : null,
     rejectedByRole: p.rejectedByRole,
+    rejectedByName: p.salesUser?.fullName || null,
+    updatedAt: p.updatedAt ? new Date(p.updatedAt).toISOString() : null,
     lastContactedAt: p.lastContactedAt ? new Date(p.lastContactedAt).toISOString() : null,
     status: p.status as AdminProposalItem["status"],
     stage: p.stage,

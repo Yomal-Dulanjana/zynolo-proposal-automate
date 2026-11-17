@@ -702,7 +702,18 @@ export default function MasterProposalTable({
       {viewingRejectionModal && (
         <ViewRejectionReasonModal
           isOpen={!!viewingRejectionModal}
-          proposal={viewingRejectionModal}
+          proposal={{
+            proposalId: viewingRejectionModal.proposalId,
+            clientName: viewingRejectionModal.clientName,
+            lossReason: viewingRejectionModal.lossReason,
+            rejectionComment: viewingRejectionModal.rejectionComment,
+            lossNotes: viewingRejectionModal.lossNotes,
+            hodComment: viewingRejectionModal.hodComment,
+            rejectedAt: viewingRejectionModal.rejectedAt,
+            rejectedByRole: viewingRejectionModal.rejectedByRole,
+            rejectedByName: viewingRejectionModal.rejectedByName || viewingRejectionModal.salesRepName,
+            updatedAt: viewingRejectionModal.updatedAt,
+          }}
           onClose={() => setViewingRejectionModal(null)}
         />
       )}

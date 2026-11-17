@@ -50,6 +50,13 @@ export interface Proposal {
   rejectionComment?: string | null;
   rejectedAt?: string | null;
   rejectedByRole?: string | null;
+  rejectedByName?: string | null;
+  updatedAt?: string | null;
+  salesUser?: {
+    id: number;
+    fullName: string;
+    email?: string;
+  } | null;
   createdAt: string;
 }
 
@@ -1186,7 +1193,18 @@ export default function ProposalTable({
       {viewingRejectionModal && (
         <ViewRejectionReasonModal
           isOpen={!!viewingRejectionModal}
-          proposal={viewingRejectionModal}
+          proposal={{
+            proposalId: viewingRejectionModal.proposalId,
+            clientName: viewingRejectionModal.clientName,
+            lossReason: viewingRejectionModal.lossReason,
+            rejectionComment: viewingRejectionModal.rejectionComment,
+            lossNotes: viewingRejectionModal.lossNotes,
+            hodComment: viewingRejectionModal.hodComment,
+            rejectedAt: viewingRejectionModal.rejectedAt,
+            rejectedByRole: viewingRejectionModal.rejectedByRole,
+            rejectedByName: viewingRejectionModal.rejectedByName || viewingRejectionModal.salesUser?.fullName,
+            updatedAt: viewingRejectionModal.updatedAt,
+          }}
           onClose={() => setViewingRejectionModal(null)}
         />
       )}
