@@ -138,9 +138,36 @@ export function resolveLogoDataUri(logoUrl?: string | null): string | null {
   return null;
 }
 
+// Serverless-safe helper to encode public/rejected.png to Base64 data URI
+export function getRejectedBadgeBase64(): string {
+  try {
+    const cwd = process.cwd();
+    const possiblePaths = [
+      path.join(cwd, "public", "rejected.png"),
+      path.resolve(cwd, "public/rejected.png"),
+      path.resolve("./public/rejected.png"),
+      path.resolve(cwd, "rejected.png"),
+    ];
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        const buffer = fs.readFileSync(p);
+        return `data:image/png;base64,${buffer.toString("base64")}`;
+      }
+    }
+  } catch (e) {
+    console.error("Error reading rejected.png watermark:", e);
+  }
+  return "";
+}
+
+export const getRejectedWatermarkBase64 = getRejectedBadgeBase64;
+
 export interface PDFProposalData {
   proposalId: string;
   version?: string;
+  status?: string;
+  stage?: string;
+  isRejected?: boolean;
   proposalDate: Date;
   expiryDate: Date;
   clientName: string;
@@ -195,6 +222,36 @@ export function buildProposalSlidesHtml(data: PDFProposalData): string {
   const vatAmount = data.vatAmount !== undefined && data.vatAmount > 0 ? data.vatAmount : pricing.vatAmount;
   const totalAmount = data.totalAmount !== undefined && data.totalAmount > 0 ? data.totalAmount : pricing.totalAmount;
   const empCount = pricing.employeeCount;
+
+  // Stamping: watermark only on Slide 1 / Cover Page if proposal is rejected
+  const isRejected = Boolean(
+    data.isRejected ||
+    ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"].includes(
+      (data.status || data.stage || "").toUpperCase()
+    )
+  );
+  const rejectedImageUri = isRejected ? getRejectedBadgeBase64() : "";
+  const slide1Watermark = isRejected && rejectedImageUri ? `
+    <div style="
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-12deg);
+      z-index: 999;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 70%;
+      max-width: 900px;
+    ">
+      <img 
+        src="${rejectedImageUri}" 
+        style="width: 100%; height: auto; object-fit: contain; opacity: 0.88; filter: drop-shadow(0 15px 25px rgba(0,0,0,0.3));" 
+        alt="REJECTED" 
+      />
+    </div>
+  ` : "";
 
   return `
 <!DOCTYPE html>
@@ -529,6 +586,7 @@ export function buildProposalSlidesHtml(data: PDFProposalData): string {
     <div class="p1-meta-id">${escapeHtml(data.proposalId)}</div>
     <div class="p1-meta-version">${escapeHtml(version)}</div>
     <div class="p1-meta-date">${formatOrdinalDateShort(data.proposalDate)}</div>
+    ${slide1Watermark}
   </div>
 
   <!-- SLIDE 2: MAIN FUNCTIONALITY (STATIC) -->

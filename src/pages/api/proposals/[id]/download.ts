@@ -33,29 +33,21 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
       return Response.json({ success: false, message: "Proposal not found." }, { status: 404 });
     }
 
-    // PDF DOWNLOAD LOCK: Rejected proposals cannot be downloaded or exported
     const isRejected = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"].includes(
       (proposal.status || proposal.stage || "").toUpperCase()
     );
-    if (isRejected) {
-      return Response.json(
-        {
-          success: false,
-          error: "Access Denied: Rejected proposals cannot be downloaded or exported.",
-          message: "Access Denied: Rejected proposals cannot be downloaded or exported.",
-        },
-        { status: 403 }
-      );
-    }
 
     let pdfBuffer: Buffer;
     const absPath = proposal.pdfPath ? path.join("./public", proposal.pdfPath) : null;
-    if (absPath && fs.existsSync(absPath)) {
+    if (!isRejected && absPath && fs.existsSync(absPath)) {
       pdfBuffer = fs.readFileSync(absPath);
     } else {
       pdfBuffer = await generateProposalPDF({
         proposalId: proposal.proposalId,
         version: proposal.version,
+        status: proposal.status,
+        stage: proposal.stage,
+        isRejected,
         proposalDate: proposal.proposalDate,
         expiryDate: proposal.expiryDate,
         clientName: proposal.clientName,
@@ -72,11 +64,15 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
       });
     }
 
+    const downloadFilename = isRejected
+      ? `Proposal-${proposal.proposalId}-REJECTED.pdf`
+      : `Proposal_${proposal.proposalId}.pdf`;
+
     return new Response(pdfBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="Proposal_${proposal.proposalId}.pdf"`,
+        "Content-Disposition": `attachment; filename="${downloadFilename}"`,
         "Content-Length": String(pdfBuffer.length),
       },
     });

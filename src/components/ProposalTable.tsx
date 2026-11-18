@@ -904,16 +904,29 @@ export default function ProposalTable({
                       <td className="py-3.5 px-4 text-right">
                         {isRejected ? (
                           <div className="flex items-center justify-end space-x-2">
-                            {/* Sole Permitted Action: View Rejection Comment & Audit Log */}
+                            {/* 1. View Rejection Remarks & Audit */}
                             <button
                               type="button"
                               onClick={() => setViewingRejectionModal(p)}
-                              title="View Rejection Comment & Audit Log"
-                              className="p-1.5 text-amber-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition border border-amber-200 cursor-pointer"
+                              title="View Rejection Remarks & Audit"
+                              className="p-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition border border-rose-200 cursor-pointer"
                             >
                               <MessageSquare size={15} />
                             </button>
-                            <span className="text-xs text-slate-400 italic px-1 select-none">Locked</span>
+
+                            {/* 2. Download Rejected Copy (Watermarked) */}
+                            <a
+                              href={`/api/proposals/${p.id}/pdf`}
+                              download={`Proposal-${p.proposalId}-REJECTED.pdf`}
+                              title="Download Rejected Copy"
+                              className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition inline-flex items-center justify-center cursor-pointer"
+                            >
+                              <Download size={15} />
+                            </a>
+
+                            <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 select-none">
+                              Locked
+                            </span>
                           </div>
                         ) : (
                           <div className="flex items-center justify-end gap-1.5">

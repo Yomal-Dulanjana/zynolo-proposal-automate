@@ -44,20 +44,10 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
       return Response.json({ success: false, message: "Proposal not found." }, { status: 404 });
     }
 
-    // PDF DOWNLOAD LOCK: Rejected proposals cannot be downloaded or exported
+    // Determine if proposal is in terminal rejected state
     const isRejected = ["REJECTED", "REJECTED_LOST", "CLOSED_LOST"].includes(
       (proposal.status || proposal.stage || "").toUpperCase()
     );
-    if (isRejected) {
-      return Response.json(
-        {
-          success: false,
-          error: "Access Denied: Rejected proposals cannot be downloaded or exported.",
-          message: "Access Denied: Rejected proposals cannot be downloaded or exported.",
-        },
-        { status: 403 }
-      );
-    }
 
     let pdfBuffer: Buffer;
     const possiblePaths = [
@@ -65,15 +55,18 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
       path.resolve(process.cwd(), "public/pdfs", `${proposal.proposalId}.pdf`),
     ].filter(Boolean) as string[];
 
-    const foundPath = possiblePaths.find((p) => fs.existsSync(p));
+    const foundPath = !isRejected ? possiblePaths.find((p) => fs.existsSync(p)) : null;
 
     if (foundPath) {
       pdfBuffer = fs.readFileSync(foundPath);
     } else {
-      // Regenerate PDF if not found on disk
+      // Generate PDF (embeds rejected watermark on Slide 1 if proposal is rejected)
       pdfBuffer = await generateProposalPDF({
         proposalId: proposal.proposalId,
         version: proposal.version,
+        status: proposal.status,
+        stage: proposal.stage,
+        isRejected,
         proposalDate: proposal.proposalDate,
         expiryDate: proposal.expiryDate,
         clientName: proposal.clientName,
@@ -89,20 +82,28 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
         repEmail: proposal.salesUser.email,
       });
 
+      // Cache only if active; for rejected deals, optionally cache as -REJECTED.pdf
       try {
         const pdfDir = path.resolve(process.cwd(), "public/pdfs");
         if (!fs.existsSync(pdfDir)) fs.mkdirSync(pdfDir, { recursive: true });
-        fs.writeFileSync(path.join(pdfDir, `${proposal.proposalId}.pdf`), pdfBuffer);
+        const cacheFilename = isRejected
+          ? `${proposal.proposalId}-REJECTED.pdf`
+          : `${proposal.proposalId}.pdf`;
+        fs.writeFileSync(path.join(pdfDir, cacheFilename), pdfBuffer);
       } catch (cacheErr) {
         console.warn("[proposals/[id]/pdf GET] Serverless read-only filesystem detected, streaming buffer directly:", cacheErr);
       }
     }
 
+    const downloadFilename = isRejected
+      ? `Proposal-${proposal.proposalId}-REJECTED.pdf`
+      : `Zynolo-Proposal-${proposal.proposalId}.pdf`;
+
     return new Response(pdfBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="Zynolo-Proposal-${proposal.proposalId}.pdf"`,
+        "Content-Disposition": `attachment; filename="${downloadFilename}"`,
         "Content-Length": String(pdfBuffer.length),
         "Cache-Control": "no-cache",
       },

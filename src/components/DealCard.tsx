@@ -554,18 +554,16 @@ export default function DealCard({
             </button>
           )}
 
-          {/* Download PDF Document (Hidden for Rejected / Lost Proposals) */}
-          {!isTerminalLost && (
-            <a
-              href={`/api/proposals/${deal.id}/pdf`}
-              download={`Zynolo-Proposal-${deal.proposalId}.pdf`}
-              onClick={(e) => e.stopPropagation()}
-              title="Download PDF Presentation"
-              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200 rounded-lg transition-colors cursor-pointer"
-            >
-              <Download size={14} />
-            </a>
-          )}
+          {/* Download PDF Document (Includes Rejected Copy for Lost Deals) */}
+          <a
+            href={`/api/proposals/${deal.id}/pdf`}
+            download={isTerminalLost ? `Proposal-${deal.proposalId}-REJECTED.pdf` : `Zynolo-Proposal-${deal.proposalId}.pdf`}
+            onClick={(e) => e.stopPropagation()}
+            title={isTerminalLost ? "Download Rejected Copy" : "Download PDF Presentation"}
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200 rounded-lg transition-colors cursor-pointer"
+          >
+            <Download size={14} />
+          </a>
         </div>
       </div>
     </div>
